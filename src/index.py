@@ -16,7 +16,7 @@ from kivy.uix.label import Label # type: ignore
 from kivy.graphics import Color, RoundedRectangle # type: ignore
 from kivy.uix.anchorlayout import AnchorLayout # type: ignore
 from kivy.uix.popup import Popup # type: ignore
-
+from kivy.utils import platform # type: ignore
 
 from plyer import audio # type: ignore
 SOUND_BACKEND = "plyer"
@@ -29,7 +29,7 @@ ALARM_URL      = "http://localhost:5000/api/app-alarm"
 POLL_INTERVAL  = 10              # in seconds
 REFRESH_PERIOD = 60              # in seconds
 HERE = os.path.dirname(__file__)
-ALARM_SOUND = os.path.join(HERE, "alarm.wav")
+ALARM_SOUND = os.path.join(HERE, "fixed-alarm.wav")
 
 
 # simulate phone‑size for desktop preview
@@ -290,8 +290,23 @@ class AlarmLayout(BoxLayout):
 
     # Causes crash
     
+    # def _play_sound(self):
+    #     audio.source = "fixed-alarm.wav"
+    #     audio.play()
+
     def _play_sound(self):
-        audio.play(path="alarm.mp3")
+        if platform == "win" or platform == "linux" or platform == "macosx":
+            # On desktop, play manually using source
+            file_path = os.path.join(os.getcwd(), "alarm.wav")
+            audio.source = file_path
+            try:
+                audio.play()
+            except Exception as e:
+                print(f"Audio failed: {e}")
+        elif platform == "android":
+            # On Android, just call play directly if source is pre-configured
+            audio.source = "alarm.wav"
+            audio.play()
 
     # def _play_sound(self):
     #     if SOUND_BACKEND=="playsound":
