@@ -14,6 +14,8 @@ from kivy.uix.textinput import TextInput # type: ignore
 from kivy.uix.button import Button # type: ignore
 from kivy.uix.label import Label # type: ignore
 from kivy.graphics import Color, RoundedRectangle # type: ignore
+from kivy.uix.anchorlayout import AnchorLayout # type: ignore
+from kivy.uix.popup import Popup # type: ignore
 
 try:
     from playsound import playsound # type: ignore
@@ -26,28 +28,36 @@ except ImportError:
 # CONFIG
 # —————————————————————————————————————————————————————————————————————————
 ALARM_URL      = "http://localhost:5000/api/app-alarm"
-ALARM_SOUND    = "alarm.mp3"     # your audio file
+# ALARM_SOUND    = "alarm.wav"     # your audio file
 POLL_INTERVAL  = 10              # in seconds
 REFRESH_PERIOD = 60              # in seconds
+HERE = os.path.dirname(__file__)
+ALARM_SOUND = os.path.join(HERE, "alarm.wav")
+
 
 # simulate phone‑size for desktop preview
 Window.size = (360, 640)
-
+Window.clearcolor = (1, 1, 1, 1)
 
 # —————————————————————————————————————————————————————————————————————————
 # A little “Card” widget via canvas
 # —————————————————————————————————————————————————————————————————————————
 class CardBox(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation='vertical', padding=12, spacing=8, **kwargs)
-        with self.canvas.before:
-            Color(rgba=(1,1,1,0.1))
-            self._bg = RoundedRectangle(radius=[10], pos=self.pos, size=self.size)
-        self.bind(pos=self._upd_bg, size=self._upd_bg)
+        kwargs.setdefault("orientation", "vertical")
+        kwargs.setdefault("padding", 12)
+        kwargs.setdefault("spacing", 8)
+        super().__init__(**kwargs)
 
-    def _upd_bg(self, *a):
-        self._bg.pos = self.pos
-        self._bg.size = self.size
+        with self.canvas.before:
+            Color(1, 1, 1, 1)  # white background
+            self.rect = RoundedRectangle(radius=[12])
+        
+        self.bind(pos=self.update_rect, size=self.update_rect)
+
+    def update_rect(self, *args):
+        self.rect.pos = self.pos
+        self.rect.size = self.size
 
 
 # —————————————————————————————————————————————————————————————————————————
@@ -55,7 +65,7 @@ class CardBox(BoxLayout):
 # —————————————————————————————————————————————————————————————————————————
 class AlarmLayout(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation='vertical', padding=16, spacing=12, **kwargs)
+        super().__init__(orientation='vertical', padding=0, spacing=12, **kwargs)
         self.app_id     = self._load_app_id()
         self._refresh_ev= None
 
@@ -67,19 +77,56 @@ class AlarmLayout(BoxLayout):
 
 
     # — ID ENTRY ———————————————————————————————————————————————
+    
     def _build_id_view(self):
         self.clear_widgets()
-        self.status = Label(text="Enter your App ID", size_hint_y=None, height=30)
-        self.add_widget(self.status)
 
-        self.input_box = BoxLayout(size_hint_y=None, height=48, spacing=8)
-        self.app_id_in = TextInput(hint_text="abcd-1234-efgh", multiline=False)
-        self.input_box.add_widget(self.app_id_in)
-        btn = Button(text="Start", background_color=(0.2,0.6,1,1))
+        # Anchor everything in the center
+        container = AnchorLayout(anchor_x='center', anchor_y='center')
+        card = BoxLayout(orientation='vertical', padding=20, spacing=12,
+                        size_hint=(0.8, None), height=200)
+
+        # Draw a red rounded rect + subtle shadow behind the card
+        with card.canvas.before:
+            # shadow
+            Color(rgba=(0, 0, 0, 0.15))
+            self._shadow_rect = RoundedRectangle(radius=[20], pos=(card.x-5, card.y-5),
+                                                size=(card.width+10, card.height+10))
+            # red background
+            Color(rgba=(1, 0.3, 0.25, 1))
+            self._bg_rect = RoundedRectangle(radius=[20], pos=card.pos, size=card.size)
+        # keep them in sync
+        card.bind(pos=self._update_card_bg, size=self._update_card_bg)
+
+        # Title
+        self.status = Label(text="Enter your App ID", size_hint_y=None, height=40,
+                            color=(1,1,1,1), bold=True, font_size='18sp')
+        card.add_widget(self.status)
+
+        # Input + button row
+        row = BoxLayout(size_hint_y=None, height=48, spacing=8)
+        self.app_id_in = TextInput(hint_text="abcd-1234-efgh", multiline=False,
+                                background_color=(1,1,1,1), foreground_color=(0,0,0,1),
+                                padding=(10, 10), font_size='16sp')
+        row.add_widget(self.app_id_in)
+
+        btn = Button(text="Start", size_hint_x=None, width=100,
+                    background_color=(1,1,1,1), color=(1,0.3,0.25,1),
+                    background_normal='', font_size='16sp')
         btn.bind(on_press=self._on_submit)
-        self.input_box.add_widget(btn)
+        row.add_widget(btn)
 
-        self.add_widget(self.input_box)
+        card.add_widget(row)
+        container.add_widget(card)
+        self.add_widget(container)
+
+
+    def _update_card_bg(self, instance, value):
+        # update both shadow and bg to follow card
+        self._shadow_rect.pos = (instance.x - 5, instance.y - 5)
+        self._shadow_rect.size = (instance.width + 10, instance.height + 10)
+        self._bg_rect.pos = instance.pos
+        self._bg_rect.size = instance.size
 
 
     def _on_submit(self, _):
@@ -97,38 +144,47 @@ class AlarmLayout(BoxLayout):
     # — MAIN ALARM + SCHEDULE DISPLAY —————————————————————————————————————————
     def _build_main_view(self):
         self.clear_widgets()
-        self.status = Label(text=f"Alarm Active (ID: {self.app_id})", size_hint_y=None, height=30)
-        self.add_widget(self.status)
 
-        # Reset
-        r = Button(text="Reset ID", size_hint_y=None, height=40, background_color=(1,0.4,0.3,1))
-        r.bind(on_press=self._on_reset)
-        self.add_widget(r)
+        # --- Red Header with ID ---
+        header = BoxLayout(orientation='vertical', size_hint_y=None, height=100, padding=(10, 10), spacing=5)
+        with header.canvas.before:
+            Color(1, 0.3, 0.25, 1)
+            self._header_bg = RoundedRectangle(pos=header.pos, size=header.size, radius=[0, 0, 20, 20])
+        header.bind(pos=self._update_header_bg, size=self._update_header_bg)
 
-        # Scrollable “card”
-        self.card_scroll = ScrollView(size_hint=(1,None), size=(self.width, self.height*0.6))
-        card = CardBox(size_hint_y=None)
-        card.bind(minimum_height=card.setter('height'))
+        header.add_widget(Label(text="Alarm Active", font_size='24sp', bold=True, color=(1, 1, 1, 1)))
+        header.add_widget(Label(text=f"(ID: {self.app_id})", font_size='16sp', color=(1, 1, 1, 1)))
+        self.add_widget(header)
 
-        self.card_content = Label(
-            text="Loading this week…",
-            markup=True,
-            size_hint_y=None,
-            height=100,
-            valign='top'
-        )
-        self.card_content.bind(
-            texture_size=lambda inst,ts: setattr(inst, 'height', ts[1])
-        )
-
-        card.add_widget(self.card_content)
-        self.card_scroll.add_widget(card)
+        # --- Card Scrollable Content ---
+        self.card_scroll = ScrollView(size_hint=(1, 1))
+        self.card_box = CardBox(size_hint_y=None, padding=16, spacing=12)
+        self.card_box.bind(minimum_height=self.card_box.setter('height'))
+        self.card_scroll.add_widget(self.card_box)
         self.add_widget(self.card_scroll)
 
-        # start polling & refreshing
+        # --- Reset Button ---
+        reset = Button(
+            text="Reset ID",
+            size_hint_y=None,
+            height=50,
+            background_color=(1, 0.3, 0.25, 1),
+            color=(1, 1, 1, 1),
+            background_normal='',
+            font_size='16sp'
+        )
+        reset.bind(on_press=self._on_reset)
+        self.add_widget(reset)
+
+        # Load content
         Clock.schedule_once(lambda dt: self._start_polling(), 0)
         Clock.schedule_once(lambda dt: self._refresh_schedule(), 0)
         self._start_auto_refresh()
+
+    def _update_header_bg(self, *args):
+        self._header_bg.pos = args[0].pos
+        self._header_bg.size = args[0].size
+
 
 
     # — VALIDATION & PERSISTENCE —————————————————————————————————————————
@@ -164,7 +220,22 @@ class AlarmLayout(BoxLayout):
 
     # — ALARM POLLING —————————————————————————————————————————————————
     def _start_polling(self):
-        threading.Thread(target=self._poll_loop, daemon=True).start()
+        # threading.Thread(target=self._poll_loop, daemon=True).start()
+        Clock.schedule_interval(self._poll_once, POLL_INTERVAL)
+
+    def _do_poll(self):
+        try:
+            r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+            if r.status_code == 200 and r.json().get("trigger"):
+                item = r.json().get("item", {})
+                threading.Thread(target=self._play_sound, daemon=True).start()
+                Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
+        except Exception as e:
+            print("Poll error:", e)
+
+    def _poll_once(self, dt):
+        # fire off the network check in a thread
+        threading.Thread(target=self._do_poll, daemon=True).start()
 
     def _poll_loop(self):
         while True:
@@ -176,6 +247,37 @@ class AlarmLayout(BoxLayout):
                 print("Poll error:", e)
             time.sleep(POLL_INTERVAL)
 
+    # def _poll_loop(self):
+    #     while True:
+    #         try:
+    #             r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+    #             if r.status_code==200 and r.json().get("trigger"):
+    #                 item = r.json().get("item", {})
+    #                 # schedule both sound *and* a UI popup
+    #                 threading.Thread(target=self._play_sound, daemon=True).start()
+    #                 Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
+    #         except Exception as e:
+    #             print("Poll error:", e)
+    #         time.sleep(POLL_INTERVAL)
+
+    def show_alarm(self, item):
+        """Pop up a dismissable alarm window"""
+        title = item.get("title", "Alarm")
+        date  = item.get("date", "")
+        content = BoxLayout(orientation="vertical", padding=20, spacing=20)
+        content.add_widget(Label(text=f"[b]{title}[/b]\n{date}", markup=True))
+        btn = Button(text="Dismiss", size_hint_y=None, height="48dp")
+        content.add_widget(btn)
+
+        popup = Popup(
+            title="⏰ Alarm!",
+            content=content,
+            size_hint=(.8,.4),
+            auto_dismiss=False
+        )
+        btn.bind(on_press=popup.dismiss)
+        popup.open()
+
     def _play_sound(self):
         if SOUND_BACKEND=="playsound":
             playsound(ALARM_SOUND)
@@ -185,25 +287,46 @@ class AlarmLayout(BoxLayout):
 
 
     # — WEEKLY REFRESH —————————————————————————————————————————————————
+
     def _refresh_schedule(self):
+        self.card_box.clear_widgets()
         try:
             s = requests.get(f"http://localhost:5000/api/schedules/current-week/{self.app_id}").json()
             a = requests.get(f"http://localhost:5000/api/activities/current-week/{self.app_id}").json()
-            lines = []
+
             if s:
-                lines.append("[b]Schedules[/b]")
+                self.card_box.add_widget(Label(text="Schedules", color=(1, 0.3, 0.25, 1), font_size='18sp', bold=True, size_hint_y=None, height=30))
                 for e in s:
-                    lines.append(f"• {e['title']} on {e['date']}")
+                    self.card_box.add_widget(Label(
+                        text=f"{e['title']}\n{e['date']}",
+                        font_size='16sp',
+                        color=(0, 0, 0, 1),
+                        size_hint_y=None,
+                        height=60,
+                        halign='left',
+                        valign='middle',
+                        text_size=(self.width - 64, None)  # 64 accounts for card padding
+                    ))
+
             if a:
-                lines.append("\n[b]Activities[/b]")
+                self.card_box.add_widget(Label(text="Activities", color=(1, 0.3, 0.25, 1), font_size='18sp', bold=True, size_hint_y=None, height=30))
                 for e in a:
-                    lines.append(f"• {e['activityType']} on {e['date']}")
+                    self.card_box.add_widget(Label(
+                        text=f"{e['activityType']}\n{e['date']}",
+                        font_size='16sp',
+                        color=(0, 0, 0, 1),
+                        size_hint_y=None,
+                        height=60,
+                        halign='left',
+                        valign='middle',
+                        text_size=(self.width - 64, None)
+                    ))
+
             if not s and not a:
-                lines = ["No upcoming items"]
-            self.card_content.text = "\n".join(lines)
+                self.card_box.add_widget(Label(text="No upcoming items", font_size='16sp', size_hint_y=None, height=30))
         except Exception as e:
             print("Refresh error:", e)
-            self.card_content.text = "Could not fetch data"
+            self.card_box.add_widget(Label(text="Could not fetch data", font_size='16sp', size_hint_y=None, height=30))
 
     def _start_auto_refresh(self):
         if self._refresh_ev:
