@@ -17,12 +17,9 @@ from kivy.graphics import Color, RoundedRectangle # type: ignore
 from kivy.uix.anchorlayout import AnchorLayout # type: ignore
 from kivy.uix.popup import Popup # type: ignore
 
-try:
-    from playsound import playsound # type: ignore
-    SOUND_BACKEND = "playsound"
-except ImportError:
-    from plyer import audio # type: ignore
-    SOUND_BACKEND = "plyer"
+
+from plyer import audio # type: ignore
+SOUND_BACKEND = "plyer"
 
 # —————————————————————————————————————————————————————————————————————————
 # CONFIG
@@ -68,6 +65,7 @@ class AlarmLayout(BoxLayout):
         super().__init__(orientation='vertical', padding=0, spacing=12, **kwargs)
         self.app_id     = self._load_app_id()
         self._refresh_ev= None
+        self.alarm_triggered = False
 
         # we'll build UI once, below
         if self.app_id:
@@ -185,6 +183,27 @@ class AlarmLayout(BoxLayout):
         self._header_bg.pos = args[0].pos
         self._header_bg.size = args[0].size
 
+    def create_card(self, title, subtitle):
+        card = BoxLayout(orientation='vertical', padding=12, spacing=6,
+                        size_hint_y=None, height=100)
+
+        with card.canvas.before:
+            Color(1, 1, 1, 1)  # white background
+            rect = RoundedRectangle(radius=[16])
+            card._bg_rect = rect  # store so we can update
+        card.bind(pos=lambda instance, _: setattr(rect, 'pos', instance.pos))
+        card.bind(size=lambda instance, _: setattr(rect, 'size', instance.size))
+
+        card.add_widget(Label(
+            text=title, font_size='16sp', bold=True,
+            color=(0.1, 0.1, 0.1, 1), size_hint_y=None, height=30
+        ))
+        card.add_widget(Label(
+            text=subtitle, font_size='14sp',
+            color=(0.3, 0.3, 0.3, 1), size_hint_y=None, height=20
+        ))
+        return card
+
 
 
     # — VALIDATION & PERSISTENCE —————————————————————————————————————————
@@ -224,12 +243,16 @@ class AlarmLayout(BoxLayout):
         Clock.schedule_interval(self._poll_once, POLL_INTERVAL)
 
     def _do_poll(self):
+        if self.alarm_triggered: return
+
         try:
             r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
             if r.status_code == 200 and r.json().get("trigger"):
                 item = r.json().get("item", {})
-                threading.Thread(target=self._play_sound, daemon=True).start()
+                # threading.Thread(target=self._play_sound, daemon=True).start() # causes crash as well?
+                Clock.schedule_once(lambda dt: self._play_sound(), 0)
                 Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
+                Clock.schedule_once(lambda dt: setattr(self, 'alarm_triggered', False), 60)
         except Exception as e:
             print("Poll error:", e)
 
@@ -242,23 +265,10 @@ class AlarmLayout(BoxLayout):
             try:
                 r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
                 if r.status_code==200 and r.json().get("trigger"):
-                    threading.Thread(target=self._play_sound, daemon=True).start()
+                    threading.Thread(target=self._play_sound, daemon=True).start() # this will crash the app
             except Exception as e:
                 print("Poll error:", e)
             time.sleep(POLL_INTERVAL)
-
-    # def _poll_loop(self):
-    #     while True:
-    #         try:
-    #             r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
-    #             if r.status_code==200 and r.json().get("trigger"):
-    #                 item = r.json().get("item", {})
-    #                 # schedule both sound *and* a UI popup
-    #                 threading.Thread(target=self._play_sound, daemon=True).start()
-    #                 Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
-    #         except Exception as e:
-    #             print("Poll error:", e)
-    #         time.sleep(POLL_INTERVAL)
 
     def show_alarm(self, item):
         """Pop up a dismissable alarm window"""
@@ -278,12 +288,17 @@ class AlarmLayout(BoxLayout):
         btn.bind(on_press=popup.dismiss)
         popup.open()
 
+    # Causes crash
+    
     def _play_sound(self):
-        if SOUND_BACKEND=="playsound":
-            playsound(ALARM_SOUND)
-        else:
-            try: audio.player.play(ALARM_SOUND)
-            except: pass
+        audio.play(path="alarm.mp3")
+
+    # def _play_sound(self):
+    #     if SOUND_BACKEND=="playsound":
+    #         playsound(ALARM_SOUND)
+    #     else:
+    #         try: audio.player.play(ALARM_SOUND)
+    #         except: pass
 
 
     # — WEEKLY REFRESH —————————————————————————————————————————————————
@@ -297,30 +312,13 @@ class AlarmLayout(BoxLayout):
             if s:
                 self.card_box.add_widget(Label(text="Schedules", color=(1, 0.3, 0.25, 1), font_size='18sp', bold=True, size_hint_y=None, height=30))
                 for e in s:
-                    self.card_box.add_widget(Label(
-                        text=f"{e['title']}\n{e['date']}",
-                        font_size='16sp',
-                        color=(0, 0, 0, 1),
-                        size_hint_y=None,
-                        height=60,
-                        halign='left',
-                        valign='middle',
-                        text_size=(self.width - 64, None)  # 64 accounts for card padding
-                    ))
+                    self.card_box.add_widget(self.create_card(e['title'], e['date']))
+
 
             if a:
                 self.card_box.add_widget(Label(text="Activities", color=(1, 0.3, 0.25, 1), font_size='18sp', bold=True, size_hint_y=None, height=30))
                 for e in a:
-                    self.card_box.add_widget(Label(
-                        text=f"{e['activityType']}\n{e['date']}",
-                        font_size='16sp',
-                        color=(0, 0, 0, 1),
-                        size_hint_y=None,
-                        height=60,
-                        halign='left',
-                        valign='middle',
-                        text_size=(self.width - 64, None)
-                    ))
+                    self.card_box.add_widget(self.create_card(e['activityType'], e['date']))
 
             if not s and not a:
                 self.card_box.add_widget(Label(text="No upcoming items", font_size='16sp', size_hint_y=None, height=30))
