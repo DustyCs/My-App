@@ -3,181 +3,166 @@ import sys
 import json
 import threading
 import time
-import requests
+import requests # type: ignore
 
-from kivy.app import App
-from kivy.clock import Clock
-from kivy.core.window import Window
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.scrollview import ScrollView
-from kivy.uix.textinput import TextInput
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-
-from kivy.uix.boxlayout import BoxLayout
-from kivy.graphics import Color, RoundedRectangle
+from kivy.app import App # type: ignore
+from kivy.clock import Clock # type: ignore
+from kivy.core.window import Window # type: ignore
+from kivy.uix.boxlayout import BoxLayout # type: ignore
+from kivy.uix.scrollview import ScrollView # type: ignore
+from kivy.uix.textinput import TextInput # type: ignore
+from kivy.uix.button import Button # type: ignore
+from kivy.uix.label import Label # type: ignore
+from kivy.graphics import Color, RoundedRectangle # type: ignore
 
 try:
-    from playsound import playsound
+    from playsound import playsound # type: ignore
     SOUND_BACKEND = "playsound"
 except ImportError:
-    from plyer import audio
+    from plyer import audio # type: ignore
     SOUND_BACKEND = "plyer"
 
 # —————————————————————————————————————————————————————————————————————————
 # CONFIG
 # —————————————————————————————————————————————————————————————————————————
 ALARM_URL      = "http://localhost:5000/api/app-alarm"
-SETTINGS_FILE  = "settings.json"
-ALARM_SOUND    = "alarm.mp3"   # your audio file
-POLL_INTERVAL  = 10             # in seconds
-REFRESH_PERIOD = 60             # in seconds
+ALARM_SOUND    = "alarm.mp3"     # your audio file
+POLL_INTERVAL  = 10              # in seconds
+REFRESH_PERIOD = 60              # in seconds
 
-# make window phone‑sized for preview
+# simulate phone‑size for desktop preview
 Window.size = (360, 640)
 
+
 # —————————————————————————————————————————————————————————————————————————
-# BoxLayout
+# A little “Card” widget via canvas
 # —————————————————————————————————————————————————————————————————————————
 class CardBox(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', padding=12, spacing=8, **kwargs)
-        # draw a light “card” background behind us
         with self.canvas.before:
-            Color(rgba=(1, 1, 1, 0.1))  # white at 10% opacity
+            Color(rgba=(1,1,1,0.1))
             self._bg = RoundedRectangle(radius=[10], pos=self.pos, size=self.size)
-        # keep rectangle in sync
-        self.bind(pos=self._update_bg, size=self._update_bg)
+        self.bind(pos=self._upd_bg, size=self._upd_bg)
 
-    def _update_bg(self, *args):
+    def _upd_bg(self, *a):
         self._bg.pos = self.pos
         self._bg.size = self.size
 
 
 # —————————————————————————————————————————————————————————————————————————
-# MAIN LAYOUT
+# Main layout
 # —————————————————————————————————————————————————————————————————————————
 class AlarmLayout(BoxLayout):
     def __init__(self, **kwargs):
-        super().__init__(orientation="vertical", padding=16, spacing=12, **kwargs)
+        super().__init__(orientation='vertical', padding=16, spacing=12, **kwargs)
+        self.app_id     = self._load_app_id()
+        self._refresh_ev= None
 
-        # load App ID if saved
-        self.app_id       = self._load_app_id()
-        self._refresh_ev  = None
-
-        # status at top
-        self.status_label = Label(text="", size_hint_y=None, height=30)
-        self.add_widget(self.status_label)
-
+        # we'll build UI once, below
         if self.app_id:
-            self._enter_main_flow()
+            self._build_main_view()
         else:
-            self._enter_id_flow()
+            self._build_id_view()
 
-    # — ID ENTRY VIEW ———————————————————————————————————————————————
-    def _enter_id_flow(self):
+
+    # — ID ENTRY ———————————————————————————————————————————————
+    def _build_id_view(self):
         self.clear_widgets()
-        self.add_widget(self.status_label)
+        self.status = Label(text="Enter your App ID", size_hint_y=None, height=30)
+        self.add_widget(self.status)
 
-        # bright header
-        self.add_widget(Label(text="🎯 Enter your App ID", font_size=20, size_hint_y=None, height=40))
+        self.input_box = BoxLayout(size_hint_y=None, height=48, spacing=8)
+        self.app_id_in = TextInput(hint_text="abcd-1234-efgh", multiline=False)
+        self.input_box.add_widget(self.app_id_in)
+        btn = Button(text="Start", background_color=(0.2,0.6,1,1))
+        btn.bind(on_press=self._on_submit)
+        self.input_box.add_widget(btn)
 
-        self.id_box = BoxLayout(size_hint_y=None, height=48, spacing=8)
-        self.app_id_input = TextInput(hint_text="abcd-1234-efgh...", multiline=False)
-        self.id_box.add_widget(self.app_id_input)
-        btn = Button(text="🚀 Start", background_color=(0.2,0.6,1,1))
-        btn.bind(on_press=self._on_submit_id)
-        self.id_box.add_widget(btn)
-        self.add_widget(self.id_box)
+        self.add_widget(self.input_box)
 
-    def _on_submit_id(self, _):
-        val = self.app_id_input.text.strip()
+
+    def _on_submit(self, _):
+        val = self.app_id_in.text.strip()
         if not val:
-            self.status_label.text = "❗ Please enter something"
-            return
-        if self._validate_id(val):
+            self.status.text = "Please enter an ID"
+        elif self._validate_id(val):
             self.app_id = val
             self._save_app_id(val)
-            self.status_label.text = "✅ ID accepted!"
-            self._enter_main_flow()
+            self._build_main_view()
         else:
-            self.status_label.text = "❌ Invalid ID"
+            self.status.text = "Invalid ID"
 
-    # — MAIN VIEW —————————————————————————————————————————————————
-    def _enter_main_flow(self):
+
+    # — MAIN ALARM + SCHEDULE DISPLAY —————————————————————————————————————————
+    def _build_main_view(self):
         self.clear_widgets()
-        self.add_widget(self.status_label)
-        self.add_widget(Label(text=f"🔔 Alarm Active (ID: {self.app_id})",
-                              font_size=16, size_hint_y=None, height=30))
+        self.status = Label(text=f"Alarm Active (ID: {self.app_id})", size_hint_y=None, height=30)
+        self.add_widget(self.status)
 
-        # Reset button
-        reset = Button(text="♻️ Reset App ID",
-                       size_hint_y=None, height=40,
-                       background_color=(1,0.4,0.3,1))
-        reset.bind(on_press=self._on_reset)
-        self.add_widget(reset)
+        # Reset
+        r = Button(text="Reset ID", size_hint_y=None, height=40, background_color=(1,0.4,0.3,1))
+        r.bind(on_press=self._on_reset)
+        self.add_widget(r)
 
-        # ─── scrollable card area ──────────────────────────────────────────
-        # 1) create a ScrollView container
-        self.card_scroll = ScrollView(size_hint=(1, None),
-                                      size=(self.width, self.height * 0.6))
-        # 2) inside it, put our CardBox
+        # Scrollable “card”
+        self.card_scroll = ScrollView(size_hint=(1,None), size=(self.width, self.height*0.6))
         card = CardBox(size_hint_y=None)
-        # allow the card to grow vertically to fit its children
         card.bind(minimum_height=card.setter('height'))
 
-        # 3) your Label goes inside the CardBox
         self.card_content = Label(
-            text="⏳ Fetching week…",
+            text="Loading this week…",
             markup=True,
             size_hint_y=None,
             height=100,
             valign='top'
         )
-        # make the label grow as text changes
         self.card_content.bind(
-            texture_size=lambda inst, ts: setattr(inst, 'height', ts[1])
+            texture_size=lambda inst,ts: setattr(inst, 'height', ts[1])
         )
 
         card.add_widget(self.card_content)
         self.card_scroll.add_widget(card)
         self.add_widget(self.card_scroll)
-        # ───────────────────────────────────────────────────────────────────
 
-        # kick off polling + refresh
+        # start polling & refreshing
         Clock.schedule_once(lambda dt: self._start_polling(), 0)
         Clock.schedule_once(lambda dt: self._refresh_schedule(), 0)
         self._start_auto_refresh()
 
 
-    # — VALIDATION & SETTINGS ———————————————————————————————————————
+    # — VALIDATION & PERSISTENCE —————————————————————————————————————————
     def _validate_id(self, app_id):
         try:
             r = requests.get(f"{ALARM_URL}/validate/{app_id}")
             return r.status_code==200 and r.json().get("valid") is True
-        except Exception:
+        except:
             return False
 
+    def _settings_path(self):
+        return os.path.join(App.get_running_app().user_data_dir, "settings.json")
+
     def _save_app_id(self, app_id):
-        with open(SETTINGS_FILE, "w") as f:
+        with open(self._settings_path(), "w") as f:
             json.dump({"app_id":app_id}, f)
 
     def _load_app_id(self):
-        if os.path.exists(SETTINGS_FILE):
+        p = self._settings_path()
+        if os.path.exists(p):
             try:
-                return json.load(open(SETTINGS_FILE)).get("app_id")
+                return json.load(open(p)).get("app_id")
             except:
                 return None
         return None
 
     def _on_reset(self, _):
-        if os.path.exists(SETTINGS_FILE):
-            os.remove(SETTINGS_FILE)
-        # restart to clear state
+        try: os.remove(self._settings_path())
+        except: pass
         App.get_running_app().stop()
         os.execl(sys.executable, sys.executable, *sys.argv)
 
-    # — POLLING ALARM —————————————————————————————————————————————————
+
+    # — ALARM POLLING —————————————————————————————————————————————————
     def _start_polling(self):
         threading.Thread(target=self._poll_loop, daemon=True).start()
 
@@ -186,10 +171,9 @@ class AlarmLayout(BoxLayout):
             try:
                 r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
                 if r.status_code==200 and r.json().get("trigger"):
-                    # play sound
                     threading.Thread(target=self._play_sound, daemon=True).start()
             except Exception as e:
-                print("Poll err:", e)
+                print("Poll error:", e)
             time.sleep(POLL_INTERVAL)
 
     def _play_sound(self):
@@ -199,26 +183,27 @@ class AlarmLayout(BoxLayout):
             try: audio.player.play(ALARM_SOUND)
             except: pass
 
-    # — REFRESH SCHEDULE —————————————————————————————————————————————————
+
+    # — WEEKLY REFRESH —————————————————————————————————————————————————
     def _refresh_schedule(self):
         try:
             s = requests.get(f"http://localhost:5000/api/schedules/current-week/{self.app_id}").json()
             a = requests.get(f"http://localhost:5000/api/activities/current-week/{self.app_id}").json()
             lines = []
             if s:
-                lines.append("[b]📅 Schedules[/b]")
+                lines.append("[b]Schedules[/b]")
                 for e in s:
-                    lines.append(f"• {e.get('title')} @ {e.get('date')}")
+                    lines.append(f"• {e['title']} on {e['date']}")
             if a:
-                lines.append("\n[b]🎽 Activities[/b]")
+                lines.append("\n[b]Activities[/b]")
                 for e in a:
-                    lines.append(f"• {e.get('activityType')} @ {e.get('date')}")
+                    lines.append(f"• {e['activityType']} on {e['date']}")
             if not s and not a:
-                lines = ["(No upcoming items)"]
+                lines = ["No upcoming items"]
             self.card_content.text = "\n".join(lines)
         except Exception as e:
-            self.card_content.text = "⚠️ Could not fetch data"
-            print("Refresh err:", e)
+            print("Refresh error:", e)
+            self.card_content.text = "Could not fetch data"
 
     def _start_auto_refresh(self):
         if self._refresh_ev:
@@ -226,7 +211,6 @@ class AlarmLayout(BoxLayout):
         self._refresh_ev = Clock.schedule_interval(lambda dt: self._refresh_schedule(), REFRESH_PERIOD)
 
 
-# —————————————————————————————————————————————————————————————————————————
 class AlarmApp(App):
     def build(self):
         return AlarmLayout()
