@@ -18,8 +18,11 @@ from kivy.uix.anchorlayout import AnchorLayout # type: ignore
 from kivy.uix.popup import Popup # type: ignore
 from kivy.utils import platform # type: ignore
 from kivy.core.audio import SoundLoader # type: ignore
+from kivy.storage.jsonstore import JsonStore # type: ignore
+from kivy.uix.slider import Slider # type: ignore
+from kivy.logger import Logger # type: ignore
 
-from plyer import audio # type: ignore
+from plyer import audio, vibrator # type: ignore
 SOUND_BACKEND = "plyer"
 
 # —————————————————————————————————————————————————————————————————————————
@@ -32,6 +35,7 @@ REFRESH_PERIOD = 60              # in seconds
 HERE = os.path.dirname(__file__)
 ALARM_SOUND = os.path.join(HERE, "fixed-alarm.wav")
 
+store = JsonStore("settings.json")
 
 # simulate phone‑size for desktop preview
 Window.size = (360, 640)
@@ -67,6 +71,7 @@ class AlarmLayout(BoxLayout):
         self.app_id     = self._load_app_id()
         self._refresh_ev= None
         self.alarm_triggered = False
+        self.volume = store.get("audio")["volume"] if store.exists("audio") else 1.0
 
         # we'll build UI once, below
         if self.app_id:
@@ -172,8 +177,22 @@ class AlarmLayout(BoxLayout):
             background_normal='',
             font_size='16sp'
         )
-        reset.bind(on_press=self._on_reset)
+        # reset.bind(on_press=self._on_reset)
+        reset.bind(on_press=self._confirm_reset)
         self.add_widget(reset)
+
+        # -- Volume Settings ---
+        settings = Button(
+            text="Volume Settings",
+            size_hint_y=None,
+            height=50,
+            background_color=(1, 0.3, 0.25, 1),
+            color=(1, 1, 1, 1),
+            background_normal='',
+            font_size='16sp'
+        )
+        settings.bind(on_press=self.open_volume_settings)
+        self.add_widget(settings)
 
         # Load content
         Clock.schedule_once(lambda dt: self._start_polling(), 0)
@@ -204,6 +223,46 @@ class AlarmLayout(BoxLayout):
             color=(0.3, 0.3, 0.3, 1), size_hint_y=None, height=20
         ))
         return card
+    
+    
+    def open_volume_settings(self, instance):
+        layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
+
+        label = Label(text="Set Alarm Volume", size_hint=(1, 0.2))
+        slider = Slider(min=0.0, max=1.0, value=store.get("audio")["volume"] if store.exists("audio") else 1.0)
+
+        def save_volume(instance):
+            store.put("audio", volume=slider.value)
+            self.volume = slider.value
+            popup.dismiss()
+
+        save_button = Button(text="Save", size_hint=(1, 0.2))
+        save_button.bind(on_release=save_volume)
+
+        layout.add_widget(label)
+        layout.add_widget(slider)
+        layout.add_widget(save_button)
+
+        popup = Popup(title="Alarm Volume", content=layout, size_hint=(0.8, 0.5))
+        popup.open()
+
+    
+    def _confirm_reset(self, _):
+        box = BoxLayout(orientation='vertical', padding=10, spacing=10)
+        box.add_widget(Label(text="Are you sure you want to reset your ID?", font_size='16sp'))
+
+        button_box = BoxLayout(spacing=10, size_hint_y=None, height=50)
+        btn_yes = Button(text="Yes", background_color=(1, 0.3, 0.25, 1), color=(1,1,1,1))
+        btn_no = Button(text="No", background_color=(0.2, 0.2, 0.2, 1), color=(1,1,1,1))
+        button_box.add_widget(btn_yes)
+        button_box.add_widget(btn_no)
+
+        box.add_widget(button_box)
+
+        popup = Popup(title="Confirm Reset", content=box, size_hint=(None, None), size=(300, 200), auto_dismiss=False)
+        btn_no.bind(on_press=popup.dismiss)
+        btn_yes.bind(on_press=lambda *args: (popup.dismiss(), self._on_reset(None)))
+        popup.open()
 
 
 
@@ -243,17 +302,51 @@ class AlarmLayout(BoxLayout):
         # threading.Thread(target=self._poll_loop, daemon=True).start()
         Clock.schedule_interval(self._poll_once, POLL_INTERVAL)
 
-    def _do_poll(self):
-        if self.alarm_triggered: return
+    # def _do_poll(self):
+    #     if self.alarm_triggered: return
 
+    #     try:
+    #         r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+    #         if r.status_code == 200 and r.json().get("trigger") and not self.alarm_triggered:
+    #             self.alarm_triggered = True
+    #             item = r.json().get("item", {})
+    #             # threading.Thread(target=self._play_sound, daemon=True).start() # causes crash as well?
+    #             Clock.schedule_once(lambda dt: self._play_sound(), 0)
+    #             Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
+    #             # Clock.schedule_once(lambda dt: setattr(self, 'alarm_triggered', False), 60)
+
+    #             # Mark alarm as acknowledged on server
+    #             try:
+    #                 requests.post(
+    #                     f"{ALARM_URL}/mobile/alarms/{item.get('_id')}/acknowledge",
+    #                     json={"type": item.get("category", "schedule").lower()}
+    #                 )
+    #             except Exception as e:
+    #                 print(f"[ERROR] Failed to acknowledge alarm: {e}")
+
+    #     except Exception as e:
+    #         print("Poll error:", e)
+    def _do_poll(self):
+        # this lives in a worker thread, so blocking requests.play() are fine here
         try:
             r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
-            if r.status_code == 200 and r.json().get("trigger"):
-                item = r.json().get("item", {})
-                # threading.Thread(target=self._play_sound, daemon=True).start() # causes crash as well?
+            data = r.json() if r.status_code == 200 else {}
+            if data.get("trigger") and not self.alarm_triggered:
+                self.alarm_triggered = True
+                item = data["item"]
+                # schedule UI things back on the main thread
                 Clock.schedule_once(lambda dt: self._play_sound(), 0)
                 Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
+                # schedule resetting the flag 60s later
                 Clock.schedule_once(lambda dt: setattr(self, 'alarm_triggered', False), 60)
+                # fire-and-forget acknowledgement
+                threading.Thread(
+                    target=lambda: requests.post(
+                        f"{ALARM_URL}/mobile/alarms/{item['_id']}/acknowledge",
+                        json={"type": data["source"]}
+                    ),
+                    daemon=True
+                ).start()
         except Exception as e:
             print("Poll error:", e)
 
@@ -275,73 +368,88 @@ class AlarmLayout(BoxLayout):
         """Pop up a dismissable alarm window"""
         title = item.get("title", "Alarm")
         date  = item.get("date", "")
+
         content = BoxLayout(orientation="vertical", padding=20, spacing=20)
-        content.add_widget(Label(text=f"[b]{title}[/b]\n{date}", markup=True))
-        btn = Button(text="Dismiss", size_hint_y=None, height="48dp")
+        content.add_widget(Label(text=f"[b]{title}[/b]\n{date}", markup=True, halign='center'))
+
+        btn = Button(
+            text="Dismiss",
+            size_hint_y=None,
+            height="48dp",
+            background_color=(1, 0.3, 0.25, 1),
+            color=(1, 1, 1, 1),
+            background_normal='',
+            bold=True
+        )
+
         content.add_widget(btn)
 
         popup = Popup(
             title="⏰ Alarm!",
+            title_color=(1, 0.3, 0.25, 1),
+            title_align="center",
             content=content,
-            size_hint=(.8,.4),
+            size_hint=(.85, .4),
+            background='atlas://data/images/defaulttheme/button_pressed',
             auto_dismiss=False
         )
-        btn.bind(on_press=popup.dismiss)
+
+        def dismiss_and_reset(*_):
+            popup.dismiss()
+            self.alarm_triggered = False
+
+        btn.bind(on_press=dismiss_and_reset)
         popup.open()
 
-    # Causes crash
-    
     # def _play_sound(self):
-    #     audio.source = "fixed-alarm.wav"
-    #     audio.play()
+    #     sound_path = "alarm.wav"
 
-    # def _play_sound(self):
-    #     if platform == "win" or platform == "linux" or platform == "macosx":
-    #         # On desktop, play manually using source
-    #         file_path = os.path.join(os.getcwd(), "alarm.wav")
-    #         audio.source = file_path
+    #     # Use Kivy's SoundLoader first
+    #     try:
+    #         sound = SoundLoader.load(sound_path)
+    #         if sound:
+    #             self.volume = store.get("audio")["volume"] if store.exists("audio") else 1.0
+    #             sound.volume = self.volume
+    #             sound.play()
+    #             vibrate_device(2.5)
+    #             print("[Audio] Playing with Kivy SoundLoader")
+    #             return
+    #         else:
+    #             print("[Audio] SoundLoader failed, trying plyer...")
+    #     except Exception as e:
+    #         print(f"[Audio] SoundLoader error: {e}")
+
+    #     # If SoundLoader fails, fallback to plyer (on Android only)
+    #     if platform == "android":
     #         try:
+    #             audio.source = sound_path
     #             audio.play()
+    #             vibrate_device(2.5)
+    #             print("[Audio] Playing with plyer.audio on Android")
     #         except Exception as e:
-    #             print(f"Audio failed: {e}")
-    #     elif platform == "android":
-    #         # On Android, just call play directly if source is pre-configured
-    #         audio.source = "alarm.wav"
-    #         audio.play()
-        
+    #             print(f"[Audio] Plyer fallback failed: {e}")
+    #     else:
+    #         print(f"[Audio] Plyer fallback skipped on platform: {platform}")
     def _play_sound(self):
-        sound_path = "alarm.wav"
+        # try Kivy first
+        sound = SoundLoader.load(ALARM_SOUND)
+        if sound:
+            sound.volume = self.volume
+            sound.play()
+        # fall back to plyer.audio on Android only
+        elif platform == "android":
+            try:
+                audio.source = ALARM_SOUND
+                audio.play()
+            except Exception:
+                Logger.warning("Audio: plyer.audio failed")
 
-        # Use Kivy's SoundLoader first
-        try:
-            sound = SoundLoader.load(sound_path)
-            if sound:
-                sound.volume = 1.0
-                sound.play()
-                print("[Audio] Playing with Kivy SoundLoader")
-                return
-            else:
-                print("[Audio] SoundLoader failed, trying plyer...")
-        except Exception as e:
-            print(f"[Audio] SoundLoader error: {e}")
-
-        # If SoundLoader fails, fallback to plyer (on Android only)
+        # vibrate on Android (no‐op on desktop)
         if platform == "android":
             try:
-                audio.source = sound_path
-                audio.play()
-                print("[Audio] Playing with plyer.audio on Android")
-            except Exception as e:
-                print(f"[Audio] Plyer fallback failed: {e}")
-        else:
-            print(f"[Audio] Plyer fallback skipped on platform: {platform}")
-
-    # def _play_sound(self):
-    #     if SOUND_BACKEND=="playsound":
-    #         playsound(ALARM_SOUND)
-    #     else:
-    #         try: audio.player.play(ALARM_SOUND)
-    #         except: pass
+                vibrator.vibrate(1.0)
+            except Exception:
+                Logger.warning("Vibration failed")
 
 
     # — WEEKLY REFRESH —————————————————————————————————————————————————
@@ -378,7 +486,17 @@ class AlarmLayout(BoxLayout):
 class AlarmApp(App):
     def build(self):
         return AlarmLayout()
+    
+# — Helper Functions —————————————————————————————————————————————————
 
+def vibrate_device(duration=2.0):
+    try:
+        if platform == "android" and vibrator.exists():
+            vibrator.vibrate(time=duration)
+        else:
+            print("Vibration not supported or not on Android.")
+    except Exception as e:
+        print("Vibration error:", e)
 
 if __name__=="__main__":
     AlarmApp().run()
