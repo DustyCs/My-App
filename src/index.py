@@ -17,6 +17,7 @@ from kivy.graphics import Color, RoundedRectangle # type: ignore
 from kivy.uix.anchorlayout import AnchorLayout # type: ignore
 from kivy.uix.popup import Popup # type: ignore
 from kivy.utils import platform # type: ignore
+from kivy.core.audio import SoundLoader # type: ignore
 
 from plyer import audio # type: ignore
 SOUND_BACKEND = "plyer"
@@ -269,7 +270,7 @@ class AlarmLayout(BoxLayout):
             except Exception as e:
                 print("Poll error:", e)
             time.sleep(POLL_INTERVAL)
-
+ 
     def show_alarm(self, item):
         """Pop up a dismissable alarm window"""
         title = item.get("title", "Alarm")
@@ -294,19 +295,46 @@ class AlarmLayout(BoxLayout):
     #     audio.source = "fixed-alarm.wav"
     #     audio.play()
 
+    # def _play_sound(self):
+    #     if platform == "win" or platform == "linux" or platform == "macosx":
+    #         # On desktop, play manually using source
+    #         file_path = os.path.join(os.getcwd(), "alarm.wav")
+    #         audio.source = file_path
+    #         try:
+    #             audio.play()
+    #         except Exception as e:
+    #             print(f"Audio failed: {e}")
+    #     elif platform == "android":
+    #         # On Android, just call play directly if source is pre-configured
+    #         audio.source = "alarm.wav"
+    #         audio.play()
+        
     def _play_sound(self):
-        if platform == "win" or platform == "linux" or platform == "macosx":
-            # On desktop, play manually using source
-            file_path = os.path.join(os.getcwd(), "alarm.wav")
-            audio.source = file_path
+        sound_path = "alarm.wav"
+
+        # Use Kivy's SoundLoader first
+        try:
+            sound = SoundLoader.load(sound_path)
+            if sound:
+                sound.volume = 1.0
+                sound.play()
+                print("[Audio] Playing with Kivy SoundLoader")
+                return
+            else:
+                print("[Audio] SoundLoader failed, trying plyer...")
+        except Exception as e:
+            print(f"[Audio] SoundLoader error: {e}")
+
+        # If SoundLoader fails, fallback to plyer (on Android only)
+        if platform == "android":
             try:
+                audio.source = sound_path
                 audio.play()
+                print("[Audio] Playing with plyer.audio on Android")
             except Exception as e:
-                print(f"Audio failed: {e}")
-        elif platform == "android":
-            # On Android, just call play directly if source is pre-configured
-            audio.source = "alarm.wav"
-            audio.play()
+                print(f"[Audio] Plyer fallback failed: {e}")
+        else:
+            print(f"[Audio] Plyer fallback skipped on platform: {platform}")
 
     # def _play_sound(self):
     #     if SOUND_BACKEND=="playsound":
