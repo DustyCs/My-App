@@ -40,11 +40,25 @@ jobs:
               yes | buildozer --verbose android debug \
             "
 
-      - name: 📂 Verify main.py made it into the APK
+      - name: 📂 Verify main.py made it into the embedded Python zip
         run: |
-          echo "🔓 Inspecting APK contents:"
-          unzip -l bin/*.apk | grep " main.py" || (echo "❌ main.py not packaged in APK!" && exit 1)
-          echo "✅ main.py is inside the APK."
+          echo "🔓 Checking for assets/python27.zip in the APK…"
+          unzip -l bin/*.apk | grep -q 'assets/python27.zip' || {
+            echo "❌ assets/python27.zip not found in APK!"
+            exit 1
+          }
+          echo "✅ assets/python27.zip found — extracting…"
+
+          # Dump the embedded zip to disk
+          unzip -p bin/*.apk assets/python27.zip > python27.zip
+
+          echo "🔓 Searching python27.zip for main.py…"
+          unzip -l python27.zip | grep -q 'main.py' && {
+            echo "✅ main.py is packaged inside python27.zip!"
+          } || {
+            echo "❌ main.py NOT found inside python27.zip!"
+            exit 1
+          }
 
       - name: 📦 Upload APK
         uses: actions/upload-artifact@v4
