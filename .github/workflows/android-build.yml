@@ -43,12 +43,24 @@ jobs:
           python -m pip install buildozer cython
 
       - name: Install Android SDK tools & accept licenses
+        env:
+          ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
         run: |
+          # install the CLI tools package so we get sdkmanager
+          sudo apt-get update
+          sudo apt-get install -y android-sdk-commandline-tools
+
+          # ensure the SDK root exists
+          mkdir -p "$ANDROID_SDK_ROOT"
+
+          # tell sdkmanager where to write
+          export ANDROID_SDK_ROOT
+
+          # accept licenses and install platform‑tools, build‑tools, etc.
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
-            "cmdline-tools;latest" \
-            "platform-tools" \
-            "platforms;android-31" \
-            "build-tools;36.0.0"
+              "platform-tools" \
+              "platforms;android-31" \
+              "build-tools;36.0.0"
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
 
       - name: Build debug APK
