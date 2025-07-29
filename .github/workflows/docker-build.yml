@@ -1,9 +1,10 @@
+# .github/workflows/docker-kivy-build.yml
 name: Build Kivy APK (Docker)
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,12 +15,20 @@ jobs:
       - name: 📥 Checkout source
         uses: actions/checkout@v3
 
+      - name: ✅ Confirm runner is alive
+        run: echo "Runner OK – starting Docker build…"
+
       - name: 🐳 Build APK using Docker
         run: |
-          docker run --rm -v ${{ github.workspace }}:/app \
-            kivy/buildozer:20230413 bash -c "
-              cd /app &&
-              buildozer --verbose android debug
+          docker run --rm \
+            -v "${{ github.workspace }}:/app" \
+            bodolsog/py3-kivy-buildozer:latest \
+            bash -c "\
+              cd /app && \
+              # ensure buildozer knows your source folder \
+              sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
+              # do a clean build for full logs \
+              buildozer --verbose android debug \
             "
 
       - name: 📦 Upload APK
