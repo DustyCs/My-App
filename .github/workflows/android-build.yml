@@ -36,12 +36,14 @@ jobs:
       - name: Install Buildozer, Cython & p4a (master)
         run: |
           pip install --upgrade pip
-          pip install buildozer==1.5.0 cython==0.29.33 \
-            "python-for-android @ git+https://github.com/kivy/python-for-android.git@master"
+          pip install \
+            buildozer==1.5.0 \
+            cython==0.29.33 \
+            "python-for-android@git+https://github.com/kivy/python-for-android.git@master"
 
       - name: Build Android APK
         env:
-          P4A_SKIP_RECIPES: "libffi"
+          P4A_SKIP_RECIPES: libffi
         run: |
           yes | buildozer -v android debug
 

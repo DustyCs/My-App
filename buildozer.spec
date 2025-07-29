@@ -10,7 +10,7 @@ package.name = lifetime
 package.domain = org.jjg.lifetime
 
 # (str) Source code where the main.py live
-source.dir = ./src
+source.dir = src
 
 # (list) Source files to include (let empty to include all the files)
 source.include_exts = py,png,jpg,kv,atlas,wav,json
@@ -39,6 +39,7 @@ version = 0.1
 # comma separated e.g. requirements = sqlite3,kivy
 requirements = python3,kivy,plyer,requests,libffi
 p4a.skip_recipes = libffi
+p4a.recipes_to_skip = libffi
 
 # (str) Custom source folders for requirements
 # Sets custom source for any requirements with recipes
