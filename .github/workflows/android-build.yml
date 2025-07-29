@@ -42,26 +42,33 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install buildozer cython
 
-      - name: Install Android SDK tools & accept licenses
+      - name: Install Android SDK cmdline-tools & accept licenses
         env:
-          ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
         run: |
-          # install the CLI tools package so we get sdkmanager
           sudo apt-get update
-          sudo apt-get install -y android-sdk-commandline-tools
+          sudo apt-get install -y unzip wget
 
-          # ensure the SDK root exists
-          mkdir -p "$ANDROID_SDK_ROOT"
+          # Create the SDK root and download Google's cmdline-tools
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          pushd "$ANDROID_SDK_ROOT/cmdline-tools"
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          unzip cmdline-tools.zip
+          rm cmdline-tools.zip
+          # The zip unpacks into a folder named 'cmdline-tools'; rename it to 'latest'
+          mv cmdline-tools latest
+          popd
 
-          # tell sdkmanager where to write
-          export ANDROID_SDK_ROOT
+          # Make sdkmanager available
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 
-          # accept licenses and install platform‑tools, build‑tools, etc.
+          # Install and accept everything we need
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
-              "platform-tools" \
-              "platforms;android-31" \
-              "build-tools;36.0.0"
+            "platform-tools" \
+            "platforms;android-31" \
+            "build-tools;36.0.0"
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
+
 
       - name: Build debug APK
         working-directory: src   # adjust if your buildozer.spec is elsewhere
