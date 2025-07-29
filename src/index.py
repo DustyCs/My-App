@@ -21,6 +21,7 @@ from kivy.core.audio import SoundLoader # type: ignore
 from kivy.storage.jsonstore import JsonStore # type: ignore
 from kivy.uix.slider import Slider # type: ignore
 from kivy.logger import Logger # type: ignore
+from pathlib import Path
 
 from plyer import audio, vibrator # type: ignore
 SOUND_BACKEND = "plyer"
@@ -28,12 +29,24 @@ SOUND_BACKEND = "plyer"
 # —————————————————————————————————————————————————————————————————————————
 # CONFIG
 # —————————————————————————————————————————————————————————————————————————
-ALARM_URL      = "http://localhost:5000/api/app-alarm"
+# ALARM_URL      = "http://localhost:5000/api/app-alarm" # testing
 # ALARM_SOUND    = "alarm.wav"     # your audio file
 POLL_INTERVAL  = 10              # in seconds
 REFRESH_PERIOD = 60              # in seconds
 HERE = os.path.dirname(__file__)
 ALARM_SOUND = os.path.join(HERE, "fixed-alarm.wav")
+BACKEND_URLS = [
+    "https://mern-lifetime.onrender.com/api",
+    # "http://localhost:5000/api"
+]
+
+if platform == 'android':
+    from android.storage import app_storage_path # from android
+    store_path = Path(app_storage_path()) / "settings.json"
+else:
+    store_path = Path("settings.json")  # fallback for dev testing
+
+store = JsonStore(store_path)
 
 store = JsonStore("settings.json")
 
@@ -225,51 +238,99 @@ class AlarmLayout(BoxLayout):
         return card
     
     
-    def open_volume_settings(self, instance):
-        layout = BoxLayout(orientation='vertical', spacing=10, padding=10)
+    def open_volume_settings(self, _):
+        # Container card
+        card = BoxLayout(orientation='vertical', spacing=20, padding=20,
+                         size_hint=(0.8, None), height=250)
+        with card.canvas.before:
+            # shadow
+            Color(0, 0, 0, 0.15)
+            shadow = RoundedRectangle(radius=[16], pos=(card.x-5, card.y-5),
+                                      size=(card.width+10, card.height+10))
+            # white background
+            Color(1, 1, 1, 1)
+            bg = RoundedRectangle(radius=[16], pos=card.pos, size=card.size)
+        card.bind(pos=lambda inst, _: setattr(shadow, 'pos', (inst.x-5, inst.y-5)))
+        card.bind(size=lambda inst, _: setattr(shadow, 'size', (inst.width+10, inst.height+10)))
+        card.bind(pos=lambda inst, _: setattr(bg, 'pos', inst.pos),
+                  size=lambda inst, _: setattr(bg, 'size', inst.size))
 
-        label = Label(text="Set Alarm Volume", size_hint=(1, 0.2))
-        slider = Slider(min=0.0, max=1.0, value=store.get("audio")["volume"] if store.exists("audio") else 1.0)
+        # Header
+        header = Label(text="🔊 Set Alarm Volume", size_hint=(1, None), height=40,
+                       font_size='18sp', bold=True, color=(1, 0.3, 0.25, 1))
+        card.add_widget(header)
 
-        def save_volume(instance):
-            store.put("audio", volume=slider.value)
-            self.volume = slider.value
+        # Slider
+        slider = Slider(min=0.0, max=1.0, value=self.volume,
+                        size_hint=(1, None), height=40)
+        card.add_widget(slider)
+
+        # Buttons row
+        btn_row = BoxLayout(size_hint=(1, None), height=50, spacing=10)
+        save_btn = Button(text="Save", background_color=(1, 0.3, 0.25, 1),
+                          color=(1,1,1,1), bold=True)
+        cancel_btn = Button(text="Cancel", background_color=(0.8, 0.8, 0.8, 1),
+                            color=(0,0,0,1))
+        btn_row.add_widget(cancel_btn)
+        btn_row.add_widget(save_btn)
+        card.add_widget(btn_row)
+
+        popup = Popup(title="", content=card,
+                      size_hint=(None, None), size=(Window.width*0.9, 300),
+                      auto_dismiss=False, background='')
+        # hook up
+        save_btn.bind(on_release=lambda *_: (
+            setattr(self, 'volume', slider.value),
+            store.put("audio", volume=slider.value),
             popup.dismiss()
-
-        save_button = Button(text="Save", size_hint=(1, 0.2))
-        save_button.bind(on_release=save_volume)
-
-        layout.add_widget(label)
-        layout.add_widget(slider)
-        layout.add_widget(save_button)
-
-        popup = Popup(title="Alarm Volume", content=layout, size_hint=(0.8, 0.5))
+        ))
+        cancel_btn.bind(on_release=popup.dismiss)
         popup.open()
 
     
     def _confirm_reset(self, _):
-        box = BoxLayout(orientation='vertical', padding=10, spacing=10)
-        box.add_widget(Label(text="Are you sure you want to reset your ID?", font_size='16sp'))
+        # Container card
+        card = BoxLayout(orientation='vertical', spacing=20, padding=20,
+                         size_hint=(0.8, None), height=200)
+        with card.canvas.before:
+            Color(0, 0, 0, 0.15)
+            shadow = RoundedRectangle(radius=[16], pos=(card.x-5, card.y-5),
+                                      size=(card.width+10, card.height+10))
+            Color(1, 1, 1, 1)
+            bg = RoundedRectangle(radius=[16], pos=card.pos, size=card.size)
+        card.bind(pos=lambda inst, _: setattr(shadow, 'pos', (inst.x-5, inst.y-5)))
+        card.bind(size=lambda inst, _: setattr(shadow, 'size', (inst.width+10, inst.height+10)))
+        card.bind(pos=lambda inst, _: setattr(bg, 'pos', inst.pos),
+                  size=lambda inst, _: setattr(bg, 'size', inst.size))
 
-        button_box = BoxLayout(spacing=10, size_hint_y=None, height=50)
-        btn_yes = Button(text="Yes", background_color=(1, 0.3, 0.25, 1), color=(1,1,1,1))
-        btn_no = Button(text="No", background_color=(0.2, 0.2, 0.2, 1), color=(1,1,1,1))
-        button_box.add_widget(btn_yes)
-        button_box.add_widget(btn_no)
+        # Question
+        card.add_widget(Label(text="⚠️ Reset App ID?", size_hint=(1, None), height=40,
+                              font_size='18sp', bold=True, color=(1, 0.3, 0.25, 1),
+                              halign='center'))
 
-        box.add_widget(button_box)
+        # Buttons
+        btn_row = BoxLayout(size_hint=(1, None), height=50, spacing=10)
+        yes = Button(text="Yes", background_color=(1, 0.3, 0.25, 1),
+                     color=(1,1,1,1), bold=True)
+        no  = Button(text="No",  background_color=(0.8,0.8,0.8,1),
+                     color=(0,0,0,1))
+        btn_row.add_widget(no)
+        btn_row.add_widget(yes)
+        card.add_widget(btn_row)
 
-        popup = Popup(title="Confirm Reset", content=box, size_hint=(None, None), size=(300, 200), auto_dismiss=False)
-        btn_no.bind(on_press=popup.dismiss)
-        btn_yes.bind(on_press=lambda *args: (popup.dismiss(), self._on_reset(None)))
+        popup = Popup(title="", content=card,
+                      size_hint=(None, None), size=(Window.width*0.8, 220),
+                      auto_dismiss=False, background='')
+        no.bind(on_release=popup.dismiss)
+        yes.bind(on_release=lambda *_: (popup.dismiss(), self._on_reset(None)))
         popup.open()
-
 
 
     # — VALIDATION & PERSISTENCE —————————————————————————————————————————
     def _validate_id(self, app_id):
         try:
-            r = requests.get(f"{ALARM_URL}/validate/{app_id}")
+            # r = requests.get(f"{ALARM_URL}/validate/{app_id}")
+            r = call_backend(f"/app-alarm/validate/{app_id}")
             return r.status_code==200 and r.json().get("valid") is True
         except:
             return False
@@ -302,34 +363,11 @@ class AlarmLayout(BoxLayout):
         # threading.Thread(target=self._poll_loop, daemon=True).start()
         Clock.schedule_interval(self._poll_once, POLL_INTERVAL)
 
-    # def _do_poll(self):
-    #     if self.alarm_triggered: return
-
-    #     try:
-    #         r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
-    #         if r.status_code == 200 and r.json().get("trigger") and not self.alarm_triggered:
-    #             self.alarm_triggered = True
-    #             item = r.json().get("item", {})
-    #             # threading.Thread(target=self._play_sound, daemon=True).start() # causes crash as well?
-    #             Clock.schedule_once(lambda dt: self._play_sound(), 0)
-    #             Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
-    #             # Clock.schedule_once(lambda dt: setattr(self, 'alarm_triggered', False), 60)
-
-    #             # Mark alarm as acknowledged on server
-    #             try:
-    #                 requests.post(
-    #                     f"{ALARM_URL}/mobile/alarms/{item.get('_id')}/acknowledge",
-    #                     json={"type": item.get("category", "schedule").lower()}
-    #                 )
-    #             except Exception as e:
-    #                 print(f"[ERROR] Failed to acknowledge alarm: {e}")
-
-    #     except Exception as e:
-    #         print("Poll error:", e)
     def _do_poll(self):
         # this lives in a worker thread, so blocking requests.play() are fine here
         try:
-            r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+            # r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+            r = call_backend(f"/app-alarm/appId/{self.app_id}")
             data = r.json() if r.status_code == 200 else {}
             if data.get("trigger") and not self.alarm_triggered:
                 self.alarm_triggered = True
@@ -341,10 +379,14 @@ class AlarmLayout(BoxLayout):
                 Clock.schedule_once(lambda dt: setattr(self, 'alarm_triggered', False), 60)
                 # fire-and-forget acknowledgement
                 threading.Thread(
-                    target=lambda: requests.post(
-                        f"{ALARM_URL}/mobile/alarms/{item['_id']}/acknowledge",
+                    target=lambda: call_backend(
+                        f"/app-alarm/mobile/alarms/{item['_id']}/acknowledge",
+                        method="POST",
                         json={"type": data["source"]}
                     ),
+                        # requests.post(
+                        # f"{ALARM_URL}/mobile/alarms/{item['_id']}/acknowledge",
+                        # json={"type": data["source"]}
                     daemon=True
                 ).start()
         except Exception as e:
@@ -357,7 +399,8 @@ class AlarmLayout(BoxLayout):
     def _poll_loop(self):
         while True:
             try:
-                r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+                # r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
+                r = call_backend(f"/app-alarm/appId/{self.app_id}")
                 if r.status_code==200 and r.json().get("trigger"):
                     threading.Thread(target=self._play_sound, daemon=True).start() # this will crash the app
             except Exception as e:
@@ -401,35 +444,6 @@ class AlarmLayout(BoxLayout):
         btn.bind(on_press=dismiss_and_reset)
         popup.open()
 
-    # def _play_sound(self):
-    #     sound_path = "alarm.wav"
-
-    #     # Use Kivy's SoundLoader first
-    #     try:
-    #         sound = SoundLoader.load(sound_path)
-    #         if sound:
-    #             self.volume = store.get("audio")["volume"] if store.exists("audio") else 1.0
-    #             sound.volume = self.volume
-    #             sound.play()
-    #             vibrate_device(2.5)
-    #             print("[Audio] Playing with Kivy SoundLoader")
-    #             return
-    #         else:
-    #             print("[Audio] SoundLoader failed, trying plyer...")
-    #     except Exception as e:
-    #         print(f"[Audio] SoundLoader error: {e}")
-
-    #     # If SoundLoader fails, fallback to plyer (on Android only)
-    #     if platform == "android":
-    #         try:
-    #             audio.source = sound_path
-    #             audio.play()
-    #             vibrate_device(2.5)
-    #             print("[Audio] Playing with plyer.audio on Android")
-    #         except Exception as e:
-    #             print(f"[Audio] Plyer fallback failed: {e}")
-    #     else:
-    #         print(f"[Audio] Plyer fallback skipped on platform: {platform}")
     def _play_sound(self):
         # try Kivy first
         sound = SoundLoader.load(ALARM_SOUND)
@@ -457,8 +471,10 @@ class AlarmLayout(BoxLayout):
     def _refresh_schedule(self):
         self.card_box.clear_widgets()
         try:
-            s = requests.get(f"http://localhost:5000/api/schedules/current-week/{self.app_id}").json()
-            a = requests.get(f"http://localhost:5000/api/activities/current-week/{self.app_id}").json()
+            # s = requests.get(f"http://localhost:5000/api/schedules/current-week/{self.app_id}").json()
+            s = call_backend(f"/schedules/current-week/{self.app_id}", method="get").json()
+            # a = requests.get(f"http://localhost:5000/api/activities/current-week/{self.app_id}").json()
+            a = call_backend(f"/activities/current-week/{self.app_id}", method="get").json()
 
             if s:
                 self.card_box.add_widget(Label(text="Schedules", color=(1, 0.3, 0.25, 1), font_size='18sp', bold=True, size_hint_y=None, height=30))
@@ -497,6 +513,28 @@ def vibrate_device(duration=2.0):
             print("Vibration not supported or not on Android.")
     except Exception as e:
         print("Vibration error:", e)
+
+
+
+def call_backend(path, method="get", **kwargs):
+    """
+    Try each URL in BACKEND_URLS in order until one succeeds.
+    `path` is appended to the base, e.g. "/validate/<id>".
+    """
+    for base in BACKEND_URLS:
+        url = base.rstrip("/") + path
+        try:
+            if method.lower() == "get":
+                r = requests.get(url, timeout=5, **kwargs)
+            else:
+                r = requests.post(url, timeout=5, **kwargs)
+            # if it's a 2xx, return it immediately
+            if 200 <= r.status_code < 300:
+                return r
+        except Exception as e:
+            print(f"[Backend] {method.upper()} {url} failed:", e)
+    # if we got here, all failed
+    raise RuntimeError(f"All backend endpoints failed for {method.upper()} {path}")
 
 if __name__=="__main__":
     AlarmApp().run()
