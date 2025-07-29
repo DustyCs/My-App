@@ -33,7 +33,7 @@ jobs:
             liblzma-dev libncurses-dev libreadline-dev \
             libtool automake autoconf m4 cmake pkg-config autoconf-archive
 
-      - name: Install Buildozer, Cython & python-for-android (master)
+      - name: Install Buildozer, Cython & p4a (master)
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33 \
@@ -41,8 +41,7 @@ jobs:
 
       - name: Build Android APK
         env:
-          # ensure libffi recipe from GitHub is used; system libffi is available as fallback
-          P4A_USE_SYSTEM_LIBFFI: "1"
+          P4A_SKIP_RECIPES: "libffi"
         run: |
           yes | buildozer -v android debug
 
