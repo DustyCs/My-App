@@ -31,7 +31,7 @@ jobs:
           openjdk-17-jdk \
           libffi-dev \
           libssl-dev \
-          libncurses5 \
+          libncurses-dev \
           libncurses5-dev \
           libsqlite3-dev \
           libjpeg-dev \
