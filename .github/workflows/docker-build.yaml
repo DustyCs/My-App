@@ -1,0 +1,67 @@
+name: Build Kivy APK (Docker)
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 📥 Checkout source
+        uses: actions/checkout@v3
+
+      - name: ✅ Confirm runner is alive
+        run: echo "Runner OK – starting Docker build…"
+
+      - name: 🔍 Check for main.py in source
+        run: |
+          if [ ! -f src/main.py ]; then
+            echo "❌ main.py is missing from src/"
+            exit 1
+          else
+            echo "✅ main.py found in src/"
+          fi
+
+      - name: 🐳 Build APK using Docker
+        run: |
+          docker run --rm -u 0 \
+            -v "${{ github.workspace }}:/app" \
+            bodolsog/py3-kivy-buildozer:latest \
+            /bin/bash -c " \
+              cd /app && \
+              sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
+              sed -i 's|^requirements.*|requirements = kivy,plyer,requests|' buildozer.spec && \
+              sed -i 's|^android.permissions.*|android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,VIBRATE|' buildozer.spec && \
+              sed -i '/^p4a.skip_recipes/q; \$ a p4a.skip_recipes = libffi\np4a.recipes_to_skip = libffi' buildozer.spec && \
+              yes | buildozer --verbose android debug \
+            "
+
+      - name: 📂 Verify main.py made it into the embedded Python zip
+        run: |
+          echo "🔓 Looking for assets/python*.zip in the APK…"
+          ZIP_ASSET=$( unzip -l bin/*.apk \
+                        | awk '/assets\/python[0-9]+\.zip$/ { print $4; exit }' )
+          if [ -z "$ZIP_ASSET" ]; then
+            echo "❌ No assets/python*.zip found in APK!"
+            exit 1
+          fi
+          echo "✅ Found $ZIP_ASSET — extracting…"
+          unzip -p bin/*.apk "$ZIP_ASSET" > python_bundle.zip
+
+          echo "🔓 Searching python_bundle.zip for main.py…"
+          if unzip -l python_bundle.zip | grep -q 'main.py'; then
+            echo "✅ main.py is packaged inside python_bundle.zip!"
+          else
+            echo "❌ main.py NOT found inside python_bundle.zip!"
+            exit 1
+          fi
+
+      - name: 📦 Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-kivy-app
+          path: bin/*.apk
