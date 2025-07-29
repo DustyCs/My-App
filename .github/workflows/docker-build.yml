@@ -3,7 +3,7 @@ name: Build Kivy APK (Docker)
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [ main ]
 
 jobs:
   build:
@@ -17,9 +17,9 @@ jobs:
       - name: 🐳 Build APK using Docker
         run: |
           docker run --rm -v ${{ github.workspace }}:/app \
-            kivy/buildozer:latest bash -c "
+            kivy/buildozer:20230413 bash -c "
               cd /app &&
-              buildozer android debug
+              buildozer --verbose android debug
             "
 
       - name: 📦 Upload APK
