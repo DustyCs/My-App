@@ -1,0 +1,64 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10
+
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential \
+          ccache \
+          git \
+          zip \
+          unzip \
+          openjdk-17-jdk \
+          libffi-dev \
+          libssl-dev \
+          libncurses5 \
+          libncurses5-dev \
+          libsqlite3-dev \
+          libjpeg-dev \
+          zlib1g-dev \
+          libgl1-mesa-dev \
+          libbz2-dev \
+          libgdbm-dev \
+          liblzma-dev \
+          libncursesw5-dev \
+          libreadline-dev \
+          libtool \
+          automake \
+          autoconf \
+          m4 \
+          cmake
+
+        pip install --upgrade pip
+        pip install buildozer cython
+
+    - name: Initialize buildozer
+      run: |
+        cd src  # If your buildozer.spec is in src
+        buildozer android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: LifeTime-App-APK
+        path: |
+          src/bin/*.apk  # adjust path if buildozer.spec is elsewhere
