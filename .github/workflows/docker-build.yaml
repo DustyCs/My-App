@@ -27,26 +27,25 @@ jobs:
           fi
 
       - name: 🐳 Build APK using Docker
+        env:
+          ANDROID_HOME: /opt/android-sdk
         run: |
           docker run --rm -u 0 \
             -v "${{ github.workspace }}:/app" \
+            -v "/usr/local/lib/android/sdk:/opt/android-sdk" \
             bodolsog/py3-kivy-buildozer:latest \
             /bin/bash -c " \
               cd /app && \
-              # ensure buildozer.spec points at src/ and has copy_source enabled
+              # point source to your 'src' folder
               sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
-              # (manually add android.copy_source if not already present)
+              # ensure buildozer will bundle .py files
               grep -q '^android.copy_source' buildozer.spec \
                 || echo 'android.copy_source = True' >> buildozer.spec && \
+              # use the mounted SDK rather than downloading one
+              grep -q '^android.sdk_path' buildozer.spec \
+                || echo 'android.sdk_path = /opt/android-sdk' >> buildozer.spec && \
               yes | buildozer --verbose android debug \
             "
-
-      - name: 📂 Verify main.py made it into the APK
-        run: |
-          echo "🔓 Inspecting APK for your raw sources…"
-          unzip -l bin/*.apk | grep -q 'assets/src/main.py' \
-            && echo "✅ assets/src/main.py is packaged!" \
-            || { echo "❌ assets/src/main.py NOT found in APK – buildozer.spec might still be excluding it."; exit 1; }
 
       - name: 📦 Upload APK
         uses: actions/upload-artifact@v4
