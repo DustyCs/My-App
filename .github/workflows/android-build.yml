@@ -38,14 +38,19 @@ jobs:
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33 python-for-android==2024.1.21
 
-      - name: Patch libffi’s configure.ac to allow LT_SYS_SYMBOL_USCORE
+      - name: Patch libffi’s configure.ac to allow missing macros
         run: |
-          RECIPE_DIR=src/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/libffi/libffi
-          # inject an m4_pattern_allow at the top so Autoconf stops erroring
-          sed -i '1im4_pattern_allow([LT_SYS_SYMBOL_USCORE])' "$RECIPE_DIR/configure.ac"
-          # also allow any other obsolete macros just in case
-          sed -i '1im4_pattern_allow([AC_TRY_COMPILE])' "$RECIPE_DIR/configure.ac"
-          sed -i '1im4_pattern_allow([AC_TRY_LINK])' "$RECIPE_DIR/configure.ac"
+          # Locate the libffi recipe's configure.ac under .buildozer
+          FFI_CONF=$(find src/.buildozer -type f -path "*recipes/libffi/*/configure.ac" | head -1)
+          if [[ -z "$FFI_CONF" ]]; then
+            echo "ERROR: could not find libffi configure.ac to patch" >&2
+            exit 1
+          fi
+          echo "Patching $FFI_CONF"
+          sed -i '1im4_pattern_allow([LT_SYS_SYMBOL_USCORE])'    "$FFI_CONF"
+          sed -i '1im4_pattern_allow([AC_TRY_COMPILE])'         "$FFI_CONF"
+          sed -i '1im4_pattern_allow([AC_TRY_LINK])'            "$FFI_CONF"
+          sed -i '1im4_pattern_allow([AC_TRY_RUN])'             "$FFI_CONF"
 
       - name: Build Android APK
         working-directory: src
