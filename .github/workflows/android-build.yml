@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Java 17
         uses: actions/setup-java@v3
@@ -18,7 +19,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Python
+      - name: Set up Python 3.10
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
@@ -33,29 +34,15 @@ jobs:
             liblzma-dev libncurses-dev libreadline-dev \
             libtool automake autoconf m4 cmake pkg-config autoconf-archive
 
-      - name: Install Buildozer, Cython & p4a
+      - name: Install Buildozer, Cython & python-for-android
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33 python-for-android==2024.1.21
 
-      - name: Patch libffi’s configure.ac to allow missing macros
-        run: |
-          # Locate the libffi recipe's configure.ac
-          FFI_CONF=$(find src/.buildozer -type f -path "*recipes/libffi/*/configure.ac" | head -1)
-          if [[ -z "$FFI_CONF" ]]; then
-            echo "ERROR: could not find libffi configure.ac to patch" >&2
-            exit 1
-          fi
-          echo "Patching $FFI_CONF"
-          sed -i '1im4_pattern_allow([LT_SYS_SYMBOL_USCORE])' "$FFI_CONF"
-          sed -i '1im4_pattern_allow([AC_TRY_COMPILE])'    "$FFI_CONF"
-          sed -i '1im4_pattern_allow([AC_TRY_LINK])'       "$FFI_CONF"
-          sed -i '1im4_pattern_allow([AC_TRY_RUN])'        "$FFI_CONF"
-
       - name: Build Android APK
-        working-directory: src
+        # Run at repo root so it sees buildozer.spec here
         env:
-          # Force python-for-android to skip its bundled libffi recipe
+          # Skip libffi recipe in p4a, use system libffi-dev
           P4A_SKIP_RECIPES: "libffi"
         run: |
           yes | buildozer -v android debug
@@ -64,4 +51,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LifeTime-App-APK
-          path: src/bin/*.apk
+          path: bin/*.apk
