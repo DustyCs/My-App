@@ -10,8 +10,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # point the SDK root to where Buildozer will put it
-      ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
+      # point the SDK root to where Buildozer/SKD Manager will install Android tools
+      ANDROID_SDK_ROOT: ${{ env.HOME }}/.buildozer/android/platform/android-sdk
 
     steps:
       - name: Checkout code
@@ -50,23 +50,24 @@ jobs:
             autoconf \
             m4 \
             cmake
-          pip install --upgrade pip
-          pip install buildozer cython
+          python -m pip install --upgrade pip
+          python -m pip install buildozer cython
 
-      - name: Pre-install Android SDK components & accept licenses
+      - name: Pre‑install Android SDK components & accept licenses
         run: |
-          # make sure the sdkmanager tool exists:
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install "platform-tools" "platforms;android-31" "build-tools;36.0.0" "tools"
-          # accept every license
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
+            "platform-tools" \
+            "platforms;android-31" \
+            "build-tools;36.0.0" \
+            "cmdline-tools;latest"
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
 
       - name: Build APK with Buildozer
         working-directory: src    # adjust if your buildozer.spec is elsewhere
-        run: |
-          buildozer --verbose android debug
+        run: buildozer --verbose android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LifeTime-App-APK
-          path: src/bin/*.apk    # or wherever your .apk lands
+          path: src/bin/*.apk    # adjust if your .apk lands elsewhere
