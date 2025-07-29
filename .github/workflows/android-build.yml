@@ -31,19 +31,28 @@ jobs:
             libffi-dev libssl-dev libsqlite3-dev libjpeg-dev \
             zlib1g-dev libgl1-mesa-dev libbz2-dev libgdbm-dev \
             liblzma-dev libncurses-dev libreadline-dev \
-            libtool automake autoconf m4 cmake pkg-config
+            libtool automake autoconf m4 cmake pkg-config autoconf-archive
 
-      - name: Install Buildozer & Cython
+      - name: Install Buildozer & Cython & p4a
         run: |
           pip install --upgrade pip
-          pip install buildozer cython==0.29.33 python-for-android==2024.1.21
+          pip install buildozer==1.5.0 cython==0.29.33 python-for-android==2024.1.21
+
+      - name: Patch libffi’s configure.ac to allow LT_SYS_SYMBOL_USCORE
+        run: |
+          RECIPE_DIR=src/.buildozer/android/platform/python-for-android/pythonforandroid/recipes/libffi/libffi
+          # inject an m4_pattern_allow at the top so Autoconf stops erroring
+          sed -i '1im4_pattern_allow([LT_SYS_SYMBOL_USCORE])' "$RECIPE_DIR/configure.ac"
+          # also allow any other obsolete macros just in case
+          sed -i '1im4_pattern_allow([AC_TRY_COMPILE])' "$RECIPE_DIR/configure.ac"
+          sed -i '1im4_pattern_allow([AC_TRY_LINK])' "$RECIPE_DIR/configure.ac"
 
       - name: Build Android APK
         working-directory: src
         run: |
           yes | buildozer -v android debug
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: LifeTime-App-APK
