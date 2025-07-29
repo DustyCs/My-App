@@ -41,14 +41,13 @@ BACKEND_URLS = [
 ]
 
 if platform == 'android':
-    from android.storage import app_storage_path # from android
+    from android.storage import app_storage_path
     store_path = Path(app_storage_path()) / "settings.json"
 else:
-    store_path = Path("settings.json")  # fallback for dev testing
+    store_path = Path("settings.json")
 
-store = JsonStore(store_path)
+store = JsonStore(str(store_path))
 
-store = JsonStore("settings.json")
 
 # simulate phone‑size for desktop preview
 Window.size = (360, 640)
@@ -190,7 +189,6 @@ class AlarmLayout(BoxLayout):
             background_normal='',
             font_size='16sp'
         )
-        # reset.bind(on_press=self._on_reset)
         reset.bind(on_press=self._confirm_reset)
         self.add_widget(reset)
 
@@ -360,13 +358,10 @@ class AlarmLayout(BoxLayout):
 
     # — ALARM POLLING —————————————————————————————————————————————————
     def _start_polling(self):
-        # threading.Thread(target=self._poll_loop, daemon=True).start()
         Clock.schedule_interval(self._poll_once, POLL_INTERVAL)
 
     def _do_poll(self):
-        # this lives in a worker thread, so blocking requests.play() are fine here
         try:
-            # r = requests.get(f"{ALARM_URL}/appId/{self.app_id}")
             r = call_backend(f"/app-alarm/appId/{self.app_id}")
             data = r.json() if r.status_code == 200 else {}
             if data.get("trigger") and not self.alarm_triggered:
@@ -384,9 +379,6 @@ class AlarmLayout(BoxLayout):
                         method="POST",
                         json={"type": data["source"]}
                     ),
-                        # requests.post(
-                        # f"{ALARM_URL}/mobile/alarms/{item['_id']}/acknowledge",
-                        # json={"type": data["source"]}
                     daemon=True
                 ).start()
         except Exception as e:
@@ -471,9 +463,7 @@ class AlarmLayout(BoxLayout):
     def _refresh_schedule(self):
         self.card_box.clear_widgets()
         try:
-            # s = requests.get(f"http://localhost:5000/api/schedules/current-week/{self.app_id}").json()
             s = call_backend(f"/schedules/current-week/{self.app_id}", method="get").json()
-            # a = requests.get(f"http://localhost:5000/api/activities/current-week/{self.app_id}").json()
             a = call_backend(f"/activities/current-week/{self.app_id}", method="get").json()
 
             if s:
@@ -535,6 +525,28 @@ def call_backend(path, method="get", **kwargs):
             print(f"[Backend] {method.upper()} {url} failed:", e)
     # if we got here, all failed
     raise RuntimeError(f"All backend endpoints failed for {method.upper()} {path}")
+
+
+def get_json_path():
+    if platform == "android":
+        dst = os.path.join(App.get_running_app().user_data_dir, "alarm.json")
+        if not os.path.exists(dst):
+            import shutil
+            shutil.copy("alarm.json", dst)
+        return dst
+    return "alarm.json"
+
+def get_alarm_json_path():
+    if platform == "android":
+        user_dir = App.get_running_app().user_data_dir
+        target_path = os.path.join(user_dir, "alarm.json")
+        if not os.path.exists(target_path):
+            # Copy from APK assets into writable location
+            import shutil
+            shutil.copy("alarm.json", target_path)
+        return target_path
+    else:
+        return "alarm.json"
 
 if __name__=="__main__":
     AlarmApp().run()
