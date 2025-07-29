@@ -17,11 +17,11 @@ jobs:
       - name: ✅ Confirm runner is alive
         run: echo "Runner OK – starting Docker build…"
 
-      - name: 🐳 Build APK using Docker
+      - name: 🐳 Build APK using Docker (Python 3.8+)
         run: |
           docker run --rm -u 0 \
             -v "${{ github.workspace }}:/app" \
-            bodolsog/py3-kivy-buildozer:latest \
+            kivy/buildozer:latest \
             /bin/bash -c " \
               cd /app && \
               sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
