@@ -36,12 +36,12 @@ jobs:
             bodolsog/py3-kivy-buildozer:latest \
             /bin/bash -c " \
               cd /app && \
-              # point source to your 'src' folder
+              # point to your src folder
               sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
-              # ensure buildozer will bundle .py files
+              # ensure .py files get bundled
               grep -q '^android.copy_source' buildozer.spec \
                 || echo 'android.copy_source = True' >> buildozer.spec && \
-              # use the mounted SDK rather than downloading one
+              # tell Buildozer where the SDK lives
               grep -q '^android.sdk_path' buildozer.spec \
                 || echo 'android.sdk_path = /opt/android-sdk' >> buildozer.spec && \
               yes | buildozer --verbose android debug \
