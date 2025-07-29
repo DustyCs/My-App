@@ -10,8 +10,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      # where Buildozer will install the SDK
-      ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
+      ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
 
     steps:
       - name: Checkout code
@@ -44,7 +43,6 @@ jobs:
           python -m pip install buildozer cython
 
       - name: Install Android SDK tools & accept licenses
-        # `sdkmanager` comes bundled with the "cmdline-tools"
         run: |
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
             "cmdline-tools;latest" \
@@ -54,12 +52,11 @@ jobs:
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
 
       - name: Build debug APK
-        working-directory: src   # adjust if your buildozer.spec isn’t in src/
+        working-directory: src   # adjust if your buildozer.spec is elsewhere
         run: buildozer --verbose android debug
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: LifeTime-App-APK
-          path: |
-            src/bin/*.apk     # adjust if your APK lands somewhere else
+          path: src/bin/*.apk
