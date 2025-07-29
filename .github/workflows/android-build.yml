@@ -8,10 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # skip rebuilding libffi; use the distro’s libffi-dev instead
-      P4A_REBUILD_LIBFFI: "0"
-      P4A_USE_SYSTEM_LIBFFI: "1"
 
     steps:
       - name: Checkout code
@@ -38,16 +34,15 @@ jobs:
             liblzma-dev libncurses-dev libreadline-dev \
             libtool automake autoconf m4 cmake pkg-config
 
-      - name: Install Buildozer, Cython & python-for-android
+      - name: Install Buildozer & Cython
         run: |
           pip install --upgrade pip
-          # pin to the latest published p4a that has fixed libffi handling:
           pip install buildozer cython==0.29.33 python-for-android==2024.1.21
 
       - name: Build Android APK
         working-directory: src
         run: |
-          # auto‑accept all licenses and kick off build
+          # make sure the spec has p4a.recipes_to_skip=libffi, and libffi in requirements
           yes | buildozer -v android debug
 
       - name: Upload APK artifact
