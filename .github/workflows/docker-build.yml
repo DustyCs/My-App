@@ -17,17 +17,17 @@ jobs:
       - name: ✅ Confirm runner is alive
         run: echo "Runner OK – starting Docker build…"
 
-      - name: 🐳 Build APK using Docker (older working image)
+      - name: 🐳 Build APK using Docker
         run: |
           docker run --rm -u 0 \
             -v "${{ github.workspace }}:/app" \
             bodolsog/py3-kivy-buildozer:latest \
             /bin/bash -c " \
               cd /app && \
-              sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec || true && \
-              sed -i 's|^requirements.*|requirements = kivy,plyer,requests|' buildozer.spec || true && \
-              sed -i 's|^android.permissions.*|android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,VIBRATE|' buildozer.spec || true && \
-              sed -i '/^p4a.skip_recipes/q; \$ a p4a.skip_recipes = libffi\np4a.recipes_to_skip = libffi' buildozer.spec || true && \
+              sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
+              sed -i 's|^requirements.*|requirements = kivy,plyer,requests|' buildozer.spec && \
+              sed -i 's|^android.permissions.*|android.permissions = INTERNET,WRITE_EXTERNAL_STORAGE,VIBRATE|' buildozer.spec && \
+              sed -i '/^p4a.skip_recipes/q; \$ a p4a.skip_recipes = libffi\np4a.recipes_to_skip = libffi' buildozer.spec && \
               yes | buildozer --verbose android debug \
             "
 
