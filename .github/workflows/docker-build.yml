@@ -1,4 +1,3 @@
-# .github/workflows/docker-kivy-build.yml
 name: Build Kivy APK (Docker)
 
 on:
@@ -23,11 +22,9 @@ jobs:
           docker run --rm \
             -v "${{ github.workspace }}:/app" \
             bodolsog/py3-kivy-buildozer:latest \
-            bash -c "\
+            bash -lc " \
               cd /app && \
-              # ensure buildozer knows your source folder \
               sed -i 's|^source.dir.*|source.dir = src|' buildozer.spec && \
-              # do a clean build for full logs \
               buildozer --verbose android debug \
             "
 
