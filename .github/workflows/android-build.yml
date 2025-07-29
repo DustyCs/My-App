@@ -39,20 +39,24 @@ jobs:
         env:
           ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
         run: |
-          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip \
-            -O cmdline-tools.zip
-          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools/latest"
+          mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
+          # unpack into a temp dir
+          unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools"
+          # move into "latest" so sdkmanager lives in .../cmdline-tools/latest/bin
+          mv "$ANDROID_SDK_ROOT/cmdline-tools/cmdline-tools" "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           rm cmdline-tools.zip
 
+          # expose sdkmanager in PATH
           echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:\$PATH" >> $GITHUB_ENV
 
+          # then install packages
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "platforms;android-31" \
             "build-tools;36.0.0"
 
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
+
 
       - name: Build APK with Buildozer
         working-directory: src
