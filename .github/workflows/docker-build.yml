@@ -20,6 +20,7 @@ jobs:
       - name: 🐳 Build APK using Docker
         run: |
           docker run --rm \
+            -u 0 \
             -v "${{ github.workspace }}:/app" \
             bodolsog/py3-kivy-buildozer:latest \
             bash -lc " \
