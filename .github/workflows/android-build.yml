@@ -53,32 +53,30 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-      - name: Install Android SDK cmdline‑tools & accept licenses
+            - name: Install Android SDK cmdline‑tools & accept licenses
         env:
           ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
         run: |
-          # Prepare SDK root structure
+          # make sure sdk root exists
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools"
-          pushd "$ANDROID_SDK_ROOT/cmdline-tools"
 
-          # Download and unpack the latest cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip
-          rm cmdline-tools.zip
+          # download then unpack straight into cmdline-tools/tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip \
+               -O /tmp/cmdline-tools.zip
 
-          # Move into "latest" subfolder so sdkmanager finds its own classes
-          mv cmdline-tools latest
-          popd
+          unzip /tmp/cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools/tools"
+          rm /tmp/cmdline-tools.zip
 
-          # Put sdkmanager on PATH
-          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
+          # add sdkmanager into our PATH
+          export PATH="$ANDROID_SDK_ROOT/cmdline-tools/tools/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 
-          # Install essential packages and accept licenses
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
+          # now install platform‑tools, sdk, build‑tools & accept licenses
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "platforms;android-31" \
             "build-tools;36.0.0"
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
+
 
       - name: Build APK
         working-directory: src    # adjust if your buildozer.spec lives elsewhere
