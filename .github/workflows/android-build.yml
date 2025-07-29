@@ -10,8 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Java 17
         uses: actions/setup-java@v3
@@ -34,16 +33,16 @@ jobs:
             liblzma-dev libncurses-dev libreadline-dev \
             libtool automake autoconf m4 cmake pkg-config autoconf-archive
 
-      - name: Install Buildozer, Cython & python-for-android
+      - name: Install Buildozer, Cython & python-for-android (master)
         run: |
           pip install --upgrade pip
-          pip install buildozer==1.5.0 cython==0.29.33 python-for-android==2024.1.21
+          pip install buildozer==1.5.0 cython==0.29.33 \
+            "python-for-android @ git+https://github.com/kivy/python-for-android.git@master"
 
       - name: Build Android APK
-        # Run at repo root so it sees buildozer.spec here
         env:
-          # Skip libffi recipe in p4a, use system libffi-dev
-          P4A_SKIP_RECIPES: "libffi"
+          # ensure libffi recipe from GitHub is used; system libffi is available as fallback
+          P4A_USE_SYSTEM_LIBFFI: "1"
         run: |
           yes | buildozer -v android debug
 
