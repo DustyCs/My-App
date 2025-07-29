@@ -352,9 +352,6 @@ android.allow_backup = True
 # (str) extra command line arguments to pass when invoking pythonforandroid.toolchain
 #p4a.extra_args =
 
-# Skip the libffi recipe entirely - JG
-p4a.skip_recipes = libffi
-
 
 #
 # iOS specific
