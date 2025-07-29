@@ -352,7 +352,7 @@ android.allow_backup = True
 #p4a.extra_args =
 
 # Skip the libffi recipe entirely - JG
-p4a.recipes_to_skip = libffi
+p4a.skip_recipes = libffi
 
 
 #
