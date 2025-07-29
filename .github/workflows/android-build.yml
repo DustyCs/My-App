@@ -41,8 +41,8 @@ jobs:
       - name: Install Buildozer, Cython & python-for-android
         run: |
           pip install --upgrade pip
-          # pin to a p4a version that bundles a working libffi recipe
-          pip install buildozer cython==0.29.33 python-for-android==2024.10.0
+          # pin to the latest published p4a that has fixed libffi handling:
+          pip install buildozer cython==0.29.33 python-for-android==2024.1.21
 
       - name: Build Android APK
         working-directory: src
