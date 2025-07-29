@@ -9,65 +9,73 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      # point the SDK root to where Buildozer/SKD Manager will install Android tools
-      ANDROID_SDK_ROOT: ${{ env.HOME }}/.buildozer/android/platform/android-sdk
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Java (OpenJDK 17)
-        run: sudo apt-get update && sudo apt-get install -y openjdk-17-jdk zip unzip
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          build-essential \
+          ccache \
+          git \
+          zip \
+          unzip \
+          openjdk-17-jdk \
+          libffi-dev \
+          libssl-dev \
+          libncurses-dev \
+          libncurses5-dev \
+          libsqlite3-dev \
+          libjpeg-dev \
+          zlib1g-dev \
+          libgl1-mesa-dev \
+          libbz2-dev \
+          libgdbm-dev \
+          liblzma-dev \
+          libncursesw5-dev \
+          libreadline-dev \
+          libtool \
+          automake \
+          autoconf \
+          m4 \
+          cmake
 
-      - name: Install Linux & Python prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            ccache \
-            git \
-            libffi-dev \
-            libssl-dev \
-            libncurses-dev \
-            libncurses5-dev \
-            libsqlite3-dev \
-            libjpeg-dev \
-            zlib1g-dev \
-            libgl1-mesa-dev \
-            libbz2-dev \
-            libgdbm-dev \
-            liblzma-dev \
-            libncursesw5-dev \
-            libreadline-dev \
-            libtool \
-            automake \
-            autoconf \
-            m4 \
-            cmake
-          python -m pip install --upgrade pip
-          python -m pip install buildozer cython
+    - name: Set up Java & Python
+      run: |
+          sudo apt update
+          sudo apt install -y openjdk-17-jdk zip unzip
+      uses: actions/setup-python@v4
+        with: python-version: 3.10
 
-      - name: Pre‑install Android SDK components & accept licenses
-        run: |
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install \
+    - name: Install Buildozer and prerequisites
+      run: |
+          pip install --upgrade pip
+          pip install buildozer cython
+
+    - name: Install Android SDK Build‑Tools & accept licenses
+      env:
+        ANDROID_SDK_ROOT: ~/.buildozer/android/platform/android-sdk
+      run: |
+        yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "platforms;android-31" \
             "build-tools;36.0.0" \
-            "cmdline-tools;latest"
-          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
+            "tools"
 
-      - name: Build APK with Buildozer
-        working-directory: src    # adjust if your buildozer.spec is elsewhere
-        run: buildozer --verbose android debug
+    - name: Build APK
+      working-directory: src    # where your buildozer.spec lives
+      run: buildozer --verbose android debug
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: LifeTime-App-APK
-          path: src/bin/*.apk    # adjust if your .apk lands elsewhere
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: LifeTime-App-APK
+        path: src/bin/*.apk
