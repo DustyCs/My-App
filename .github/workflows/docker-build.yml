@@ -17,10 +17,10 @@ jobs:
       - name: ✅ Confirm runner is alive
         run: echo "Runner OK – starting Docker build…"
 
-      - name: 🔍 Check for main.py
+      - name: 🔍 Check for main.py in source
         run: |
           if [ ! -f src/main.py ]; then
-            echo "❌ main.py is missing!"
+            echo "❌ main.py is missing from src/"
             exit 1
           else
             echo "✅ main.py found in src/"
@@ -39,6 +39,12 @@ jobs:
               sed -i '/^p4a.skip_recipes/q; \$ a p4a.skip_recipes = libffi\np4a.recipes_to_skip = libffi' buildozer.spec && \
               yes | buildozer --verbose android debug \
             "
+
+      - name: 📂 Verify main.py made it into the APK
+        run: |
+          echo "🔓 Inspecting APK contents:"
+          unzip -l bin/*.apk | grep " main.py" || (echo "❌ main.py not packaged in APK!" && exit 1)
+          echo "✅ main.py is inside the APK."
 
       - name: 📦 Upload APK
         uses: actions/upload-artifact@v4
