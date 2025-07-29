@@ -53,7 +53,7 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython
 
-            - name: Install Android SDK cmdline‑tools & accept licenses
+      - name: Install Android SDK cmdline‑tools & accept licenses
         env:
           ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
         run: |
