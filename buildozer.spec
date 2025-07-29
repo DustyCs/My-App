@@ -82,6 +82,8 @@ android.use_legacy_storage = True
 #android.no-byte-compile-python = True
 source.include_patterns = main.py
 
+android.copy_source = True
+
 # (string) Presplash background color (for android toolchain)
 # Supported formats are: #RRGGBB #AARRGGBB or one of the following names:
 # red, blue, green, black, white, gray, cyan, magenta, yellow, lightgray,
