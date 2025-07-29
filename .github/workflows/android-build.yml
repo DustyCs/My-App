@@ -9,56 +9,64 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # point the SDK root to where Buildozer will put it
+      ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Set up Java (OpenJDK 17)
+        run: sudo apt-get update && sudo apt-get install -y openjdk-17-jdk zip unzip
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y \
-          build-essential \
-          ccache \
-          git \
-          zip \
-          unzip \
-          openjdk-17-jdk \
-          libffi-dev \
-          libssl-dev \
-          libncurses-dev \
-          libncurses5-dev \
-          libsqlite3-dev \
-          libjpeg-dev \
-          zlib1g-dev \
-          libgl1-mesa-dev \
-          libbz2-dev \
-          libgdbm-dev \
-          liblzma-dev \
-          libncursesw5-dev \
-          libreadline-dev \
-          libtool \
-          automake \
-          autoconf \
-          m4 \
-          cmake
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
 
-        pip install --upgrade pip
-        pip install buildozer cython
+      - name: Install Linux & Python prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            ccache \
+            git \
+            libffi-dev \
+            libssl-dev \
+            libncurses-dev \
+            libncurses5-dev \
+            libsqlite3-dev \
+            libjpeg-dev \
+            zlib1g-dev \
+            libgl1-mesa-dev \
+            libbz2-dev \
+            libgdbm-dev \
+            liblzma-dev \
+            libncursesw5-dev \
+            libreadline-dev \
+            libtool \
+            automake \
+            autoconf \
+            m4 \
+            cmake
+          pip install --upgrade pip
+          pip install buildozer cython
 
-    - name: Initialize buildozer
-      run: |
-        cd src  # If your buildozer.spec is in src
-        buildozer android debug
+      - name: Pre-install Android SDK components & accept licenses
+        run: |
+          # make sure the sdkmanager tool exists:
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --install "platform-tools" "platforms;android-31" "build-tools;36.0.0" "tools"
+          # accept every license
+          yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: LifeTime-App-APK
-        path: |
-          src/bin/*.apk  # adjust path if buildozer.spec is elsewhere
+      - name: Build APK with Buildozer
+        working-directory: src    # adjust if your buildozer.spec is elsewhere
+        run: |
+          buildozer --verbose android debug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: LifeTime-App-APK
+          path: src/bin/*.apk    # or wherever your .apk lands
