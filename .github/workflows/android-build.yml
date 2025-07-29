@@ -10,8 +10,12 @@ jobs:
   build:
     name: Build APK with Buildozer
     runs-on: ubuntu-20.04
+    timeout-minutes: 60  # auto-cancel if it hangs too long
 
     steps:
+      - name: ✅ Confirm runner is alive
+        run: echo "Runner started successfully ✅"
+
       - name: 📥 Checkout repository
         uses: actions/checkout@v3
 
@@ -37,9 +41,9 @@ jobs:
             buildozer init
           fi
 
-      - name: 🔨 Build APK - test
+      - name: 🔨 Build APK
         run: |
-          buildozer android debug
+          buildozer --verbose android debug
 
       - name: 📦 Upload APK artifact
         uses: actions/upload-artifact@v3
