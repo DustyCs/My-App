@@ -8,6 +8,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Instruct python-for-android to skip rebuilding libffi from source:
+      P4A_REBUILD_LIBFFI: "0"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -32,7 +36,7 @@ jobs:
             zlib1g-dev libgl1-mesa-dev libbz2-dev libgdbm-dev \
             liblzma-dev libncurses-dev libreadline-dev \
             libtool automake autoconf m4 cmake \
-            pkg-config libtool-bin autoconf-archive
+            pkg-config pkgconf autogen
 
       - name: Install Buildozer & Cython
         run: |
@@ -42,7 +46,6 @@ jobs:
       - name: Build Android APK
         working-directory: src
         run: |
-          # Pipe 'yes' to accept all SDK licenses automatically:
           yes | buildozer -v android debug
 
       - name: Upload APK artifact
