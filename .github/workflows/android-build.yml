@@ -37,7 +37,7 @@ jobs:
             buildozer init
           fi
 
-      - name: 🔨 Build APK
+      - name: 🔨 Build APK - test
         run: |
           buildozer android debug
 
