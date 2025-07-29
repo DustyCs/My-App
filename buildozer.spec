@@ -49,7 +49,7 @@ p4a.recipes_to_skip = libffi
 #presplash.filename = %(source.dir)s/data/presplash.png
 
 # (str) Icon of the application
-#icon.filename = %(source.dir)s/icon.png
+#icon.filename = %(source.dir)s/logo.png
 
 # (list) Supported orientations
 # Valid options are: landscape, portrait, portrait-reverse or landscape-reverse
@@ -63,7 +63,7 @@ orientation = portrait
 #
 
 #
-# author = © Copyright Info
+# author = Garcia, J. J. G. © Copyright Info
 
 # change the major version of python used by the app
 osx.python_version = 3
@@ -97,16 +97,18 @@ fullscreen = 0
 
 # (list) Permissions
 # (See https://python-for-android.readthedocs.io/en/latest/buildoptions/#build-options-1 for all the supported syntaxes and properties)
-android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, VIBRATE
+android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, VIBRATE, READ_EXTERNAL_STORAGE
 
 # (list) features (adds uses-feature -tags to manifest)
 #android.features = android.hardware.usb.host
 
 # (int) Target Android API, should be as high as possible.
-#android.api = 31
+android.api = 33
+
+android.target = 33
 
 # (int) Minimum API your APK / AAB will support.
-#android.minapi = 21
+android.minapi = 21
 
 # (int) Android SDK version to use
 #android.sdk = 20
@@ -262,7 +264,9 @@ android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, VIBRATE
 #android.wakelock = False
 
 # (list) Android application meta-data to set (key=value format)
-#android.meta_data =
+android.meta_data = \
+    android.support.POLICY_ACTIVITY:com.yourdomain.YourPrivacyPolicyActivity,\
+    privacy_policy_url:https://yourdomain.com/privacy
 
 # (list) Android library project to add (will be added in the
 # project.properties automatically.)
