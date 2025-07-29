@@ -33,27 +33,30 @@ jobs:
             liblzma-dev libncurses-dev libreadline-dev \
             libtool automake autoconf m4 cmake pkg-config autoconf-archive
 
-      - name: Install Buildozer & Cython & p4a
+      - name: Install Buildozer, Cython & p4a
         run: |
           pip install --upgrade pip
           pip install buildozer==1.5.0 cython==0.29.33 python-for-android==2024.1.21
 
       - name: Patch libffi’s configure.ac to allow missing macros
         run: |
-          # Locate the libffi recipe's configure.ac under .buildozer
+          # Locate the libffi recipe's configure.ac
           FFI_CONF=$(find src/.buildozer -type f -path "*recipes/libffi/*/configure.ac" | head -1)
           if [[ -z "$FFI_CONF" ]]; then
             echo "ERROR: could not find libffi configure.ac to patch" >&2
             exit 1
           fi
           echo "Patching $FFI_CONF"
-          sed -i '1im4_pattern_allow([LT_SYS_SYMBOL_USCORE])'    "$FFI_CONF"
-          sed -i '1im4_pattern_allow([AC_TRY_COMPILE])'         "$FFI_CONF"
-          sed -i '1im4_pattern_allow([AC_TRY_LINK])'            "$FFI_CONF"
-          sed -i '1im4_pattern_allow([AC_TRY_RUN])'             "$FFI_CONF"
+          sed -i '1im4_pattern_allow([LT_SYS_SYMBOL_USCORE])' "$FFI_CONF"
+          sed -i '1im4_pattern_allow([AC_TRY_COMPILE])'    "$FFI_CONF"
+          sed -i '1im4_pattern_allow([AC_TRY_LINK])'       "$FFI_CONF"
+          sed -i '1im4_pattern_allow([AC_TRY_RUN])'        "$FFI_CONF"
 
       - name: Build Android APK
         working-directory: src
+        env:
+          # Force python-for-android to skip its bundled libffi recipe
+          P4A_SKIP_RECIPES: "libffi"
         run: |
           yes | buildozer -v android debug
 
