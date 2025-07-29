@@ -37,7 +37,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = python3,kivy,plyer,requests,libffi
+requirements = python3,kivy,plyer,requests
 p4a.skip_recipes = libffi
 p4a.recipes_to_skip = libffi
 
