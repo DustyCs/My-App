@@ -11,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v4
@@ -38,34 +37,28 @@ jobs:
 
       - name: Install Android CLI tools & accept licenses
         env:
-          ANDROID_SDK_ROOT: ${{ runner.home }}/.buildozer/android/platform/android-sdk
+          ANDROID_SDK_ROOT: $HOME/.buildozer/android/platform/android-sdk
         run: |
-          # 1. Download & unpack the command‑line tools into cmdline-tools/latest
           mkdir -p "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip \
             -O cmdline-tools.zip
           unzip -q cmdline-tools.zip -d "$ANDROID_SDK_ROOT/cmdline-tools/latest"
           rm cmdline-tools.zip
 
-          # 2. Add sdkmanager and platform-tools to PATH
-          echo "export PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:\$PATH" >> $GITHUB_ENV
+          echo "PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:\$PATH" >> $GITHUB_ENV
 
-          # 3. Install required SDK components
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" \
             "platform-tools" \
             "platforms;android-31" \
             "build-tools;36.0.0"
 
-          # 4. Accept all licenses
           yes | sdkmanager --sdk_root="$ANDROID_SDK_ROOT" --licenses
 
       - name: Build APK with Buildozer
-        working-directory: src   # adjust if your buildozer.spec isn’t in src/
-        run: |
-          # now buildozer can find sdkmanager & java
-          buildozer --verbose android debug
+        working-directory: src
+        run: buildozer --verbose android debug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: LifeTime-App-APK
