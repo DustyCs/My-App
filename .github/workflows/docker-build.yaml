@@ -40,23 +40,15 @@ jobs:
               yes | buildozer --verbose android debug \
             "
 
-      - name: 📂 Verify main.py made it into the embedded Python zip
+      - name: 📂 Verify entrypoint in the APK
         run: |
-          echo "🔓 Looking for assets/python*.zip in the APK…"
-          ZIP_ASSET=$( unzip -l bin/*.apk \
-                        | awk '/assets\/python[0-9]+\.zip$/ { print $4; exit }' )
-          if [ -z "$ZIP_ASSET" ]; then
-            echo "❌ No assets/python*.zip found in APK!"
-            exit 1
-          fi
-          echo "✅ Found $ZIP_ASSET — extracting…"
-          unzip -p bin/*.apk "$ZIP_ASSET" > python_bundle.zip
-
-          echo "🔓 Searching python_bundle.zip for main.py…"
-          if unzip -l python_bundle.zip | grep -q 'main.py'; then
-            echo "✅ main.py is packaged inside python_bundle.zip!"
+          echo "🔓 Scanning APK for main.py or main.pyo…"
+          if unzip -l bin/*.apk \
+               | awk '{print $4}' \
+               | grep -E -q '(^|/)main\.(py|pyo)$' ; then
+            echo "✅ Found main.py/main.pyo in the APK!"
           else
-            echo "❌ main.py NOT found inside python_bundle.zip!"
+            echo "❌ Could not find main.py or main.pyo in the APK!"
             exit 1
           fi
 
