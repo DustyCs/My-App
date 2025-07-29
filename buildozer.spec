@@ -79,6 +79,8 @@ osx.kivy_version = 1.9.1
 fullscreen = 0
 
 android.use_legacy_storage = True
+android.no-byte-compile-python = True
+source.include_patterns = main.py
 
 # (string) Presplash background color (for android toolchain)
 # Supported formats are: #RRGGBB #AARRGGBB or one of the following names:

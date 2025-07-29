@@ -17,6 +17,15 @@ jobs:
       - name: ✅ Confirm runner is alive
         run: echo "Runner OK – starting Docker build…"
 
+      - name: 🔍 Check for main.py
+        run: |
+          if [ ! -f src/main.py ]; then
+            echo "❌ main.py is missing!"
+            exit 1
+          else
+            echo "✅ main.py found in src/"
+          fi
+
       - name: 🐳 Build APK using Docker
         run: |
           docker run --rm -u 0 \
