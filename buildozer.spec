@@ -278,7 +278,7 @@ android.ndk_path = /home/ustin/.buildozer/android/platform/android-ndk-r25b
 # (list) Android application meta-data to set (key=value format)
 android.meta_data = \
     android.support.POLICY_ACTIVITY:com.yourdomain.YourPrivacyPolicyActivity,\
-    privacy_policy_url:https://yourdomain.com/privacy
+    privacy_policy_url=https://yourdomain.com/privacy
 
 # (list) Android library project to add (will be added in the
 # project.properties automatically.)
