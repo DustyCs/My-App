@@ -80,7 +80,7 @@ fullscreen = 0
 
 android.use_legacy_storage = True
 #android.no-byte-compile-python = True
-source.include_patterns = main.py
+#source.include_patterns = main.py
 
 android.copy_source = True
 
