@@ -40,7 +40,6 @@ else:
 
 store = JsonStore(str(store_path))
 
-Window.size = (360, 640)
 Window.clearcolor = (1, 1, 1, 1)
 
 # CardBox

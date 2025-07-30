@@ -1022,7 +1022,7 @@ configure:18637: checking for memfd_create
 configure:18637: /home/ustin/.buildozer/android/platform/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/clang -target aarch64-linux-android21 -fomit-frame-pointer -march=armv8-a -fPIC -o conftest -target aarch64-linux-android21 -fomit-frame-pointer -march=armv8-a -fPIC -Wall -fexceptions -DANDROID -I/home/ustin/.buildozer/android/platform/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include -I/home/ustin/My-App/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a/build/python-installs/lifetime/arm64-v8a/include/python3.1   -L/home/ustin/My-App/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a/build/libs_collections/lifetime/arm64-v8a conftest.c  >&5
 ld: error: undefined symbol: memfd_create
 >>> referenced by conftest.c
->>>               /tmp/conftest-335118.o:(main)
+>>>               /tmp/conftest-f1a9ac.o:(main)
 clang-14: error: linker command failed with exit code 1 (use -v to see invocation)
 configure:18637: $? = 1
 configure: failed program was:
@@ -1093,7 +1093,7 @@ configure:18658: checking for mkostemp
 configure:18658: /home/ustin/.buildozer/android/platform/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/clang -target aarch64-linux-android21 -fomit-frame-pointer -march=armv8-a -fPIC -o conftest -target aarch64-linux-android21 -fomit-frame-pointer -march=armv8-a -fPIC -Wall -fexceptions -DANDROID -I/home/ustin/.buildozer/android/platform/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/include -I/home/ustin/My-App/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a/build/python-installs/lifetime/arm64-v8a/include/python3.1   -L/home/ustin/My-App/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a/build/libs_collections/lifetime/arm64-v8a conftest.c  >&5
 ld: error: undefined symbol: mkostemp
 >>> referenced by conftest.c
->>>               /tmp/conftest-6c3c3c.o:(main)
+>>>               /tmp/conftest-810567.o:(main)
 >>> did you mean: mkstemp
 >>> defined in: /home/ustin/.buildozer/android/platform/android-ndk-r25b/toolchains/llvm/prebuilt/linux-x86_64/bin/../sysroot/usr/lib/aarch64-linux-android/21/libc.so
 clang-14: error: linker command failed with exit code 1 (use -v to see invocation)

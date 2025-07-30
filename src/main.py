@@ -3,6 +3,8 @@ import sys
 import json
 import threading
 import time
+from jnius import autoclass 
+from android import AndroidService
 import requests # type: ignore
 
 from kivy.app import App # type: ignore
@@ -254,10 +256,17 @@ class AlarmLayout(BoxLayout):
             if data.get("trigger") and not self.alarm_triggered:
                 self.alarm_triggered = True
                 item = data["item"]
-                Clock.schedule_once(lambda dt: self._play_sound(), 0)
+
+                # Service will handle sound/vibration
                 Clock.schedule_once(lambda dt: self.show_alarm(item), 0)
+
                 Clock.schedule_once(lambda dt: setattr(self, 'alarm_triggered', False), 60)
-                threading.Thread(target=lambda: call_backend(f"/app-alarm/mobile/alarms/{item['_id']}/acknowledge", method="POST", json={"type": data["source"]}), daemon=True).start()
+                threading.Thread(target=lambda: call_backend(
+                    f"/app-alarm/mobile/alarms/{item['_id']}/acknowledge",
+                    method="POST",
+                    json={"type": data["source"]}
+                ), daemon=True).start()
+
         except Exception as e:
             Logger.warning(f"Poll error: {e}")
 
@@ -276,25 +285,40 @@ class AlarmLayout(BoxLayout):
         btn.bind(on_press=lambda *_: (popup.dismiss(), setattr(self, 'alarm_triggered', False)))
         popup.open()
 
+    # def _play_sound(self):
+    #     if not os.path.exists(ALARM_SOUND):
+    #         Logger.warning("Alarm sound file missing")
+    #         return
+    #     sound = SoundLoader.load(ALARM_SOUND)
+    #     if sound:
+    #         sound.volume = self.volume
+    #         sound.play()
+    #     elif platform == "android":
+    #         try:
+    #             audio.source = ALARM_SOUND
+    #             audio.play()
+    #         except Exception:
+    #             Logger.warning("Audio: plyer.audio failed")
+    #     if platform == "android":
+    #         try:
+    #             vibrator.vibrate(1.0)
+    #         except Exception:
+    #             Logger.warning("Vibration failed")
     def _play_sound(self):
-        if not os.path.exists(ALARM_SOUND):
-            Logger.warning("Alarm sound file missing")
-            return
-        sound = SoundLoader.load(ALARM_SOUND)
-        if sound:
-            sound.volume = self.volume
-            sound.play()
-        elif platform == "android":
-            try:
-                audio.source = ALARM_SOUND
-                audio.play()
-            except Exception:
-                Logger.warning("Audio: plyer.audio failed")
-        if platform == "android":
-            try:
-                vibrator.vibrate(1.0)
-            except Exception:
-                Logger.warning("Vibration failed")
+        """
+        Now handled in background service.
+        Main app no longer plays audio or vibration directly
+        to avoid double playback.
+        """
+        if platform != "android":
+            # On desktop or dev mode, still play locally for testing
+            if not os.path.exists(ALARM_SOUND):
+                Logger.warning("Alarm sound file missing")
+                return
+            sound = SoundLoader.load(ALARM_SOUND)
+            if sound:
+                sound.volume = self.volume
+                sound.play()
 
     def _refresh_schedule(self):
         self.card_box.clear_widgets()
@@ -352,8 +376,13 @@ class AlarmLayout(BoxLayout):
 
 class AlarmApp(App):
     def build(self):
+        global alarm_layout_instance
         try:
-            return AlarmLayout()
+            alarm_layout_instance = AlarmLayout()  # Keep reference
+            if platform == "android":
+                start_background_service()
+                # threading.Thread(target=alarm_background_loop, daemon=True).start()
+            return alarm_layout_instance
         except Exception as e:
             print("App build failed:", e)
             return Label(text="App failed to start", color=(1, 0, 0, 1))
@@ -417,6 +446,31 @@ def get_alarm_json_path():
     else:
         return "alarm.json"
 
+service = None
+alarm_layout_instance = None  # Store a reference for background polling
+
+def start_background_service():
+    global service
+    try:
+        service = AndroidService('Alarm Background Service', 'running')
+        service.start('service started')
+        print("Background service started")
+    except Exception as e:
+        print("Failed to start service:", e)
+
+
+def alarm_background_loop():
+    global alarm_layout_instance
+    while True:
+        try:
+            if alarm_layout_instance:
+                print("Background service: running _do_poll()")
+                alarm_layout_instance._do_poll()
+            else:
+                print("Background service: AlarmLayout not ready")
+            time.sleep(POLL_INTERVAL)
+        except Exception as e:
+            print("Background loop error:", e)
 
 if __name__ == "__main__":
     try:

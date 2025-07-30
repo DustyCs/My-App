@@ -16,7 +16,6 @@ source.dir = src
 source.include_exts = py,png,jpg,kv,atlas,wav,json
 
 # (list) List of inclusions using pattern matching
-#source.include_patterns = assets/*,images/*.png
 
 # (list) Source files to exclude (let empty to not exclude anything)
 #source.exclude_exts = spec
@@ -37,7 +36,7 @@ version = 0.1
 
 # (list) Application requirements
 # comma separated e.g. requirements = sqlite3,kivy
-requirements = kivy,plyer,requests
+requirements = kivy,plyer,requests,pyjnius
 p4a.skip_recipes = libffi
 p4a.recipes_to_skip = libffi
 
@@ -56,7 +55,7 @@ p4a.recipes_to_skip = libffi
 orientation = portrait
 
 # (list) List of service to declare
-#services = NAME:ENTRYPOINT_TO_PY,NAME2:ENTRYPOINT2_TO_PY
+services = alarm_service:service/main.py
 
 #
 # OSX Specific
@@ -80,7 +79,7 @@ fullscreen = 0
 
 android.use_legacy_storage = True
 #android.no-byte-compile-python = True
-#source.include_patterns = main.py
+source.include_patterns = service/*.py
 
 android.copy_source = True
 
@@ -103,7 +102,7 @@ android.copy_source = True
 
 # (list) Permissions
 # (See https://python-for-android.readthedocs.io/en/latest/buildoptions/#build-options-1 for all the supported syntaxes and properties)
-android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, VIBRATE, READ_EXTERNAL_STORAGE
+android.permissions = INTERNET, WRITE_EXTERNAL_STORAGE, VIBRATE, READ_EXTERNAL_STORAGE, WAKE_LOCK
 
 # (list) features (adds uses-feature -tags to manifest)
 #android.features = android.hardware.usb.host
@@ -327,6 +326,9 @@ android.allow_backup = True
 
 # (str) The format used to package the app for debug mode (apk or aar).
 # android.debug_artifact = apk
+
+# Start a Python background service when the app launches
+android.services = alarm_service:service/main.py
 
 #
 # Python for android (p4a) specific
