@@ -139,6 +139,10 @@ android.python3 = True
 # (str) ANT directory (if empty, it will be automatically downloaded.)
 #android.ant_path =
 
+# (str) Android NDK directory (if empty, it will be automatically downloaded.)
+android.ndk_path = /home/ustin/.buildozer/android/platform/android-ndk-r25b
+
+
 # (bool) If True, then skip trying to update the Android sdk
 # This can be useful to avoid excess Internet downloads or save time
 # when an update is due and you just want to test/build your package
